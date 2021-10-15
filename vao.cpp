@@ -1,6 +1,7 @@
 #include "vao.h"
 
 VertexArrayObject::VertexArrayObject(float * vertices, int numberOfVertices){
+    this->numberOfVertices = numberOfVertices;
     glGenBuffers(1, &this->VBO);
     glGenVertexArrays(1, &this->VAO);
     glBindVertexArray(VAO);
@@ -18,4 +19,8 @@ VertexArrayObject::VertexArrayObject(float * vertices, int numberOfVertices){
 
 void VertexArrayObject::Attach(){
     glBindVertexArray(this->VAO);
+}
+
+void VertexArrayObject::Draw(){
+    glDrawArrays(GL_TRIANGLES, 0, this->numberOfVertices / 5);
 }

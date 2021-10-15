@@ -2,8 +2,7 @@
 #define SHADER_H
 
 #include "win32_fileapi.h"
-#include <glad.h>
-#include <glfw3.h>
+#include "openglIncludes.h"
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>

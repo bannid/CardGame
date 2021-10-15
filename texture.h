@@ -1,9 +1,6 @@
 #ifndef TEXTURE_H
 #define TEXTURE_H
-
-#include <glad.h>
-#include <glfw3.h>
-#define STB_IMAGE_IMPLEMENTATION
+#include "openglIncludes.h"
 #include "stb_image.h"
 
 class Texture{
