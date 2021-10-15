@@ -6,7 +6,9 @@
 class Texture{
     public:
     Texture(const char * filePath, int desiredChannels);
+    Texture();
     bool Load();
+    bool Load(const char * filePath, int desiredChannels);
     void Attach();
     private:
     const char * filePath;

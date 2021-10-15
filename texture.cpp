@@ -5,6 +5,16 @@ Texture::Texture(const char * filePath, int desiredChannels){
     this->desiredChannels = desiredChannels;
 }
 
+Texture::Texture(){
+    
+}
+
+bool Texture::Load(const char * filePath, int desiredChannels){
+    this->filePath = filePath;
+    this->desiredChannels = desiredChannels;
+    return this->Load();
+}
+
 bool Texture::Load(){
     glGenTextures(1, &this->id);
     glBindTexture(GL_TEXTURE_2D, this->id);

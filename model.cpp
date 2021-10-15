@@ -1,25 +1,8 @@
 #include "model.h"
 
-Object3D::Object3D(const char * name, VertexArrayObject * vao, Shader * shader){
-    this->name = name;
-    this->AssignVao(vao);
-    this->AssignShader(shader);
+Object3D::Object3D(){
     this->Initialize();
 }
-
-Object3D::Object3D(const char * name){
-    this->name = name;
-    this->Initialize();
-}
-
-void Object3D::AssignVao(VertexArrayObject * vao){
-    this->vao = vao;
-}
-
-void Object3D::AssignShader(Shader * shader){
-    this->shader = shader;
-}
-
 void Object3D::Initialize(){
     this->position = glm::vec3(1.0f);
     this->scale = glm::vec3(1.0f);
@@ -46,9 +29,9 @@ void Object3D::Rotate(float angle){
     this->rotation = glm::rotate(this->rotation, glm::radians(angle), glm::vec3(0.0f, 1.0f, 0.0f));
 }
 
-void Object3D::Draw(){
-    this->vao->Attach(); 
-    this->shader->Attach();
-    this->shader->SetMat4("uModelMat", this->GetModelMat());
-    this->vao->Draw();
+void Object3D::Draw(Shader * shader, VertexArrayObject * vao){
+    shader->Attach();
+    vao->Attach();
+    shader->SetMat4("uModelMat", this->GetModelMat());
+    vao->Draw();
 }

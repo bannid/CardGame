@@ -7,6 +7,6 @@ uniform mat4 uProjectionMat;
 uniform mat4 uModelMat;
 uniform mat4 uCamMat;
 void main() {
-	gl_Position = uProjectionMat * uModelMat* vec4(pos.x, pos.y, pos.z, 1.0f);
+	gl_Position = uProjectionMat * uCamMat * uModelMat* vec4(pos.x, pos.y, pos.z, 1.0f);
 	texCoordsOut = texCoords;
 }

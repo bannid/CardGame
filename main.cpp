@@ -1,15 +1,16 @@
 #include <iostream>
 #include <windows.h>
-#include <glm/glm.hpp>
-#include <glm/gtc/matrix_transform.hpp>
-#include <glm/gtc/type_ptr.hpp>
 #include <cmath>
+#include <string>
 #include "win32_fileapi.h"
 #include "openglIncludes.h"
+#include "glmIncludes.h"
 #include "shader.h"
 #include "vao.h"
 #include "texture.h"
 #include "model.h"
+#include "common.h"
+#include "card.h"
 
 void FrameBufferSizeCallback(GLFWwindow * window, int width, int height){
     glViewport(0, 0, width, height);
@@ -23,7 +24,7 @@ int CALLBACK WinMain(HINSTANCE instance,
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-    GLFWwindow * window = glfwCreateWindow(800, 600, "CardsGame", NULL, NULL);
+    GLFWwindow * window = glfwCreateWindow(800, 800, "CardsGame", NULL, NULL);
     if ( window == NULL ) {
         std::cout << "Failed";
         return -1;
@@ -42,6 +43,29 @@ int CALLBACK WinMain(HINSTANCE instance,
         glfwTerminate();
         return -1;
     }
+    std::string stringOne("card-");
+    std::string stringTwo[4] = {
+        std::string("diamonds-"),
+        std::string("clubs-"),
+        std::string("spades-"),
+        std::string("hearts-")
+    };
+    Texture textures[52];
+    for(int i = 0; i < 4; i++){
+        for(int j = 0; j < 13; j++){
+            std::string temp = std::to_string(j + 1);
+            std::string filePath = "../assets/pfc/pc/" + 
+                stringOne +
+                stringTwo[i] +
+                temp + ".png";
+            int index = j + i * 13;
+            if(!textures[index].Load(filePath.c_str(), 4)){
+                glfwTerminate();
+                return -1;
+            }
+            
+        }
+    }
     
     float vertices[] = {
         -1.0f, -1.0f, 1.0f, 0.0f, 0.0f, //top left
@@ -54,27 +78,16 @@ int CALLBACK WinMain(HINSTANCE instance,
     };
     VertexArrayObject vao(vertices, sizeof(vertices)/sizeof(float));
     Texture tex("../assets/card-back2.png", 4);
-    Texture tex2("../assets/card-clubs-1.png", 1);
     if (!tex.Load()){
         glfwTerminate();
         return -1;
     }
-    if (!tex2.Load()){
-        glfwTerminate();
-        return -1;
-    }
-    Object3D obj("SomeObject", &vao, &shader);
-    Object3D obj2("SomeOtherObject", &vao, &shader);
-    obj.Scale(glm::vec3(50.0f, 50.0f, 1.0f));
-    obj2.Scale(glm::vec3(50.0f, 50.0f, 1.0f));
-    obj.Translate(glm::vec3(50.0f, 50.0f, 0.0f));
-    obj2.Translate(glm::vec3(50.0f, 50.0f, 0.0f));
-    obj2.Rotate(180.0f);
+    Card card;
+    card.Initialize();
     shader.Attach(); 
     vao.Attach();
-    glm::mat4 projectionMat =  glm::ortho(0.0f, 800.0f, 600.0f, 0.0f, -500.0f, 500.0f); 
+    glm::mat4 projectionMat =  glm::ortho(-400.0f, 400.0f, 400.0f, -400.0f, -500.0f, 500.0f); 
     glm::mat4 camMat = glm::mat4(1.0f);
-    glm::mat4 modelMat = obj.GetModelMat();
     shader.SetMat4("uProjectionMat", projectionMat);
     shader.SetMat4("uCamMat", camMat);
     int counter = 90;
@@ -84,15 +97,11 @@ int CALLBACK WinMain(HINSTANCE instance,
         float currentTime = glfwGetTime();
         float elapsedTime = currentTime - time;
         time = currentTime;
-        modelMat = obj.GetModelMat();
-        obj.Rotate(counter * elapsedTime);
-        obj2.Rotate(counter * elapsedTime);
         glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT); 
+        textures[51].Attach();
+        card.Draw(&shader, &vao);
         tex.Attach();
-        obj.Draw();
-        tex2.Attach();
-        obj2.Draw();
         glfwSwapBuffers(window);
         glfwPollEvents();
     }
