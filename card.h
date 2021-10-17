@@ -9,16 +9,21 @@
 
 class Card{
     public:
-    Card(CardSuit suit, CardRank cardRank, glm::vec3 position);
+    Card(CardSuit suit,
+         CardRank cardRank,
+         glm::vec3 position,
+         glm::vec3 size);
     Card();
     void Initialize();
     void SetSuit(CardSuit suit);
     void SetRank(CardRank cardRank);
     void SetPosition(glm::vec3 position);
-    void Draw(Shader * shader, VertexArrayObject * vao);
+    void SetScale(glm::vec3 scale);
+    void Rotate(float angle);
     CardSuit suit;
     CardRank cardRank;
     glm::vec3 position;
+    glm::vec3 scale;
     Object3D front;
     Object3D back;
     bool flipped;
