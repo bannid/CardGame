@@ -44,36 +44,57 @@ void FrameBufferSizeCallback(GLFWwindow * window, int width, int height){
     glViewport(0, 0, width, height);
 }
 
+bool StartOpenglAndReturnWindow(GLFWwindow ** window){
+    glfwInit();
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+    GLFWwindow * windowTemp = glfwCreateWindow(800, 800, "CardsGame", NULL, NULL);
+    if ( windowTemp == NULL ) {
+        return false;
+    }
+    *window = windowTemp;
+    glfwMakeContextCurrent(*window);
+    glfwSetFramebufferSizeCallback(*window, FrameBufferSizeCallback);
+    return true;
+}
+
+bool LoadGlad(){
+    if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
+    {
+        return false;
+    }
+    return true;
+}
 
 int CALLBACK WinMain(HINSTANCE instance,
 					 HINSTANCE prevInstance,
 					 LPSTR commandLine,
 					 int showCode) {
-    glfwInit();
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
-    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-    GLFWwindow * window = glfwCreateWindow(800, 800, "CardsGame", NULL, NULL);
-    if ( window == NULL ) {
-        std::cout << "Failed";
+    GLFWwindow * window;
+    if(!StartOpenglAndReturnWindow(&window)){
         return -1;
     }
-    glfwMakeContextCurrent(window);
-    glfwSetFramebufferSizeCallback(window, FrameBufferSizeCallback);
-    if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
-    {
-        std::cout << "Failed to initialize GLAD" << std::endl;
+    if(!LoadGlad()){
+        glfwTerminate();
         return -1;
     }
+    //Enable back face culling
     glEnable(GL_CULL_FACE);
     glCullFace(GL_BACK);
+    //Compile the shaders
     Shader shader("../shaders/vertexShader.vert", "../shaders/fragmentShader.vert");
     if (!shader.CompileAndLink()){
         glfwTerminate();
         return -1;
     }
+    //Load the textures.
+    Texture cardBack("../assets/card-back2.png", 4);
+    if (!cardBack.Load()){
+        glfwTerminate();
+        return -1;
+    }
     Texture textures[52];
-    
     if(!LoadTextures(textures)){
         glfwTerminate();
         return -1;
@@ -89,11 +110,6 @@ int CALLBACK WinMain(HINSTANCE instance,
         1.0f, -1.0f, 1.0f, 1.0f, 0.0f //top right
     };
     VertexArrayObject vao(vertices, SIZE_OF_ARRAY(vertices, float));
-    Texture cardBack("../assets/card-back2.png", 4);
-    if (!cardBack.Load()){
-        glfwTerminate();
-        return -1;
-    }
     Card card(DIAMONDS,
               RANK_QUEEN,
               glm::vec3(-100.0f, -100.0f, 0.0f),
@@ -105,10 +121,8 @@ int CALLBACK WinMain(HINSTANCE instance,
     glm::mat4 camMat = glm::mat4(1.0f);
     shader.SetMat4("uProjectionMat", projectionMat);
     shader.SetMat4("uCamMat", camMat);
-    int counter = 90;
     double time = glfwGetTime();
     glfwSwapInterval(1);
-    
     Key keys[] = {
         Key(GLFW_KEY_LEFT),
         Key(GLFW_KEY_RIGHT),
