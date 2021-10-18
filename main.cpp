@@ -1,6 +1,6 @@
 #include <iostream>
 #include <windows.h>
-#include <cmath>
+#include <math.h>
 #include <string>
 #include "win32_fileapi.h"
 #include "openglIncludes.h"
@@ -9,7 +9,8 @@
 #include "vao.h"
 #include "texture.h"
 #include "model.h"
-#include "common.h"
+#include "cardTypes.h"
+#include "animators.h"
 
 #define SIZE_OF_ARRAY(array, type) sizeof(array) / sizeof(type)
 
@@ -54,6 +55,9 @@ struct Card{
     glm::vec3 position;
     glm::vec3 scale;
     bool isFlipped;
+    AnimationRotate rotateAnimation;
+    AnimationChime chimeAnimation;
+    float rotateY = 180.0f;
     Card(Suit suit,
          Rank rank,
          glm::vec3 position,
@@ -81,6 +85,8 @@ bool LoadTextures(Texture * textures);
 OpenglCoords ScreenToOpenglCoords(float x, float y);
 //Click handlers
 bool CardWasClicked(Card * card, OpenglCoords coords);
+//Animations 
+void UpdateAnimationState(Card * card, float elapsedTime);
 void FrameBufferSizeCallback(GLFWwindow * window, int width, int height){
     globalAspectRatio = (float)width / height;
     globalWindowHeight = height;
@@ -110,6 +116,19 @@ bool LoadGlad(){
         return false;
     }
     return true;
+}
+
+float LinearInterpolation(float first, float second, float weight){
+    
+    float result = weight  * second + (1.0f - weight) * first;
+    return result;
+}
+
+float CosineInterpolation(float first, float second, float weight){
+    float modifiedWeight = (1 - cos(weight * 3.14))/2.0f;
+    modifiedWeight = pow(modifiedWeight, 0.2f);
+    float result = modifiedWeight  * second + (1.0f - modifiedWeight) * first;
+    return result;
 }
 
 int CALLBACK WinMain(HINSTANCE instance,
@@ -186,20 +205,18 @@ int CALLBACK WinMain(HINSTANCE instance,
     obj2.Scale(glm::vec3(scale, scale, 1.0f));
     obj1.Translate(glm::vec3(scale + offsetX, scale + offsetY, 0.0f));
     obj2.Translate(glm::vec3(scale + offsetX, scale + offsetY, 0.0f));
-    
+    obj1.rotation = 180.0f;
     while(!glfwWindowShouldClose(window)){
         float currentTime = glfwGetTime();
         float elapsedTime = currentTime - time;
         time = currentTime;
+        UpdateAnimationState(&card, elapsedTime);
         glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
         textures[0].Attach();
-        for(int col = 0; col < NUMBER_OF_COLUMNS; col++){
-            for(int row = 0; row < NUMBER_OF_ROWS; row++){
-                obj1.Draw(&shader, &vao);
-                obj2.Draw(&shader, &vao);
-            }
-        }
+        obj1.Draw(&shader, &vao);
+        cardBack.Attach();
+        obj2.Draw(&shader, &vao);
         UpdateInputState(window, 
                          keyboardKeys,
                          SIZE_OF_ARRAY(keyboardKeys, Key),
@@ -219,15 +236,38 @@ int CALLBACK WinMain(HINSTANCE instance,
                 OpenglCoords coordsOpengl = ScreenToOpenglCoords(x, y);
                 std::cout << coordsOpengl.x << "," << coordsOpengl.y << std::endl;
                 if(CardWasClicked(&card, coordsOpengl)){
-                    std::cout<<"Card was clicked"<<std::endl;
+                    if(!card.rotateAnimation.isActive){
+                        card.rotateAnimation.isActive = true;
+                        obj2.targetRotation = obj2.rotation + 180.0f;
+                        obj1.targetRotation = obj1.rotation + 180.0f;
+                    }
                 }
             }
+        }
+        if(card.rotateAnimation.isActive){
+            float weight = card.rotateAnimation.timeAccumulator / card.rotateAnimation.totalTime;
+            obj2.rotation = CosineInterpolation(obj2.targetRotation - 180.0f, obj2.targetRotation, weight);
+            obj1.rotation = CosineInterpolation(obj1.targetRotation - 180.0f, obj1.targetRotation, weight);
         }
         glfwSwapBuffers(window);
         glfwPollEvents();
     }
     glfwTerminate();
     return 0;
+}
+
+void UpdateAnimationState(Card * card, float elapsedTime){
+    if(card->rotateAnimation.isActive){
+        if(card->rotateAnimation.timeAccumulator >= card->rotateAnimation.totalTime){
+            card->rotateAnimation.isActive = false;
+            card->rotateAnimation.timeAccumulator = 0.0f;
+        }
+        else{
+            card->rotateAnimation.timeAccumulator += elapsedTime;
+        }
+        card->rotateAnimation.timeAccumulator = card->rotateAnimation.timeAccumulator > card->rotateAnimation.totalTime ? card->rotateAnimation.totalTime : card->rotateAnimation.timeAccumulator;
+    }
+    
 }
 
 void UpdateInputState(GLFWwindow * window,
