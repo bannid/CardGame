@@ -4,8 +4,7 @@
 #include "shader.h"
 #include "vao.h"
 
-class Object3D{
-    public:
+struct Object3D{
     Object3D();
     void Scale(glm::vec3 scale);
     void Translate(glm::vec3 translation);
@@ -14,7 +13,6 @@ class Object3D{
     void Draw(Shader * shader, VertexArrayObject * vao);
     glm::vec3 position;
     glm::vec3 scale;
-    private: 
     glm::mat4 rotation;
     void Initialize();
 };

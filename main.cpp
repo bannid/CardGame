@@ -10,9 +10,27 @@
 #include "texture.h"
 #include "model.h"
 #include "common.h"
-#include "card.h"
 
 #define SIZE_OF_ARRAY(array, type) sizeof(array) / sizeof(type)
+
+#define NUMBER_OF_COLUMNS 4
+#define NUMBER_OF_ROWS 4
+
+typedef int(*KeyPressCheckCallback)(GLFWwindow*, int);
+
+//Globals
+static float globalAspectRatio = 1.0f;
+static bool globalRescale = false;
+
+static int globalWindowHeight = 800;
+static int globalWindowWidth = 800;
+static float globalOpenglX = 400.0f;
+static float globalOpenglY = 400.0f;
+
+struct OpenglCoords{
+    float x;
+    float y;
+};
 
 struct Key{
     int keyCode;
@@ -30,16 +48,43 @@ struct Key{
     }
 };
 
-void UpdateInputState(GLFWwindow * window, Key * keys, int numberOfKeys);
+struct Card{
+    Suit suit;
+    Rank rank;
+    glm::vec3 position;
+    glm::vec3 scale;
+    bool isFlipped;
+    Card(Suit suit,
+         Rank rank,
+         glm::vec3 position,
+         glm::vec3 scale){
+        this->suit = suit;
+        this->rank = rank;
+        this->isFlipped = false;
+        this->position = position;
+        this->scale = scale;
+    }
+    Card(){
+        this->suit = SUIT_NONE;
+        this->rank = RANK_NONE;
+        this->isFlipped = false;
+        this->position = glm::vec3(0.0f);
+        this->scale = glm::vec3(1.0f);
+    }
+};
+//Input functions
+void UpdateInputState(GLFWwindow * window, Key * keys, int numberOfKeys,
+                      KeyPressCheckCallback keyPressCheck);
 bool GetKeyFromArray(int keyCode, Key * keys, int numberOfKeys, Key * out);
-
+//Textures
 bool LoadTextures(Texture * textures);
-//Globals
-static float globalAspectRatio = 1.0f;
-static bool globalRescale = false;
-
+OpenglCoords ScreenToOpenglCoords(float x, float y);
+//Click handlers
+bool CardWasClicked(Card * card, OpenglCoords coords);
 void FrameBufferSizeCallback(GLFWwindow * window, int width, int height){
     globalAspectRatio = (float)width / height;
+    globalWindowHeight = height;
+    globalWindowWidth = width;
     globalRescale = true;
     glViewport(0, 0, width, height);
 }
@@ -49,7 +94,7 @@ bool StartOpenglAndReturnWindow(GLFWwindow ** window){
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-    GLFWwindow * windowTemp = glfwCreateWindow(800, 800, "CardsGame", NULL, NULL);
+    GLFWwindow * windowTemp = glfwCreateWindow(globalWindowWidth, globalWindowHeight, "CardsGame", NULL, NULL);
     if ( windowTemp == NULL ) {
         return false;
     }
@@ -110,42 +155,74 @@ int CALLBACK WinMain(HINSTANCE instance,
         1.0f, -1.0f, 1.0f, 1.0f, 0.0f //top right
     };
     VertexArrayObject vao(vertices, SIZE_OF_ARRAY(vertices, float));
-    Card card(DIAMONDS,
-              RANK_QUEEN,
-              glm::vec3(-100.0f, -100.0f, 0.0f),
-              glm::vec3(50.0f, 50.0f * globalAspectRatio, 0.0f));
-    card.Initialize();
     shader.Attach(); 
     vao.Attach();
-    glm::mat4 projectionMat =  glm::ortho(-400.0f, 400.0f, 400.0f, -400.0f, -500.0f, 500.0f); 
+    glm::mat4 projectionMat =  glm::ortho(0.0f, globalOpenglX, globalOpenglY, 0.0f, -500.0f, 500.0f); 
     glm::mat4 camMat = glm::mat4(1.0f);
     shader.SetMat4("uProjectionMat", projectionMat);
     shader.SetMat4("uCamMat", camMat);
     double time = glfwGetTime();
     glfwSwapInterval(1);
-    Key keys[] = {
+    Key keyboardKeys[] = {
         Key(GLFW_KEY_LEFT),
         Key(GLFW_KEY_RIGHT),
         Key(GLFW_KEY_UP),
         Key(GLFW_KEY_DOWN)
     };
     
+    Key mouseKeys[] = {
+        Key(GLFW_MOUSE_BUTTON_LEFT)
+    };
+    
+    Card card;
+    Object3D obj1;
+    Object3D obj2;
+    const float scale = 30.0f;
+    const float offsetX = 10.0f;
+    const float offsetY = 10.0f;
+    card.scale = glm::vec3(scale, scale, 1.0f);
+    card.position = glm::vec3(scale + offsetX, scale + offsetY, 0.0f);
+    obj1.Scale(glm::vec3(scale, scale, 1.0f));
+    obj2.Scale(glm::vec3(scale, scale, 1.0f));
+    obj1.Translate(glm::vec3(scale + offsetX, scale + offsetY, 0.0f));
+    obj2.Translate(glm::vec3(scale + offsetX, scale + offsetY, 0.0f));
+    
     while(!glfwWindowShouldClose(window)){
-        if(globalRescale){
-            card.SetScale(glm::vec3(50.0f, 50.0f * globalAspectRatio, 0.0f));
-            globalRescale = false;
-        }
         float currentTime = glfwGetTime();
         float elapsedTime = currentTime - time;
         time = currentTime;
         glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
-        int index = card.cardRank + card.suit * 13;
-        textures[index].Attach();
-        card.back.Draw(&shader, &vao);
-        cardBack.Attach();
-        //card.front.Draw(&shader, &vao);
-        UpdateInputState(window, keys, SIZE_OF_ARRAY(keys, Key));
+        textures[0].Attach();
+        for(int col = 0; col < NUMBER_OF_COLUMNS; col++){
+            for(int row = 0; row < NUMBER_OF_ROWS; row++){
+                obj1.Draw(&shader, &vao);
+                obj2.Draw(&shader, &vao);
+            }
+        }
+        UpdateInputState(window, 
+                         keyboardKeys,
+                         SIZE_OF_ARRAY(keyboardKeys, Key),
+                         glfwGetKey);
+        UpdateInputState(window,
+                         mouseKeys,
+                         SIZE_OF_ARRAY(mouseKeys, Key),
+                         glfwGetMouseButton);
+        Key mouseKey;
+        if(GetKeyFromArray(GLFW_MOUSE_BUTTON_LEFT,
+                           mouseKeys,
+                           SIZE_OF_ARRAY(mouseKeys, Key),
+                           &mouseKey)){
+            if(mouseKey.keyWasReleased){
+                double x, y;
+                glfwGetCursorPos(window, &x, &y);
+                OpenglCoords coordsOpengl = ScreenToOpenglCoords(x, y);
+                std::cout << coordsOpengl.x << "," << coordsOpengl.y << std::endl;
+                if(CardWasClicked(&card, coordsOpengl)){
+                    std::cout<<"Card was clicked"<<std::endl;
+                }
+            }
+        }
         glfwSwapBuffers(window);
         glfwPollEvents();
     }
@@ -153,10 +230,13 @@ int CALLBACK WinMain(HINSTANCE instance,
     return 0;
 }
 
-void UpdateInputState(GLFWwindow * window, Key * keys, int numberOfKeys){
+void UpdateInputState(GLFWwindow * window,
+                      Key * keys,
+                      int numberOfKeys,
+                      KeyPressCheckCallback functionToCheckPresses){
     for(int i = 0; i<numberOfKeys; i++){
         Key * currentKey = keys + i;
-        int state = glfwGetKey(window, currentKey->keyCode);
+        int state = functionToCheckPresses(window, currentKey->keyCode);
         if(state == GLFW_PRESS){
             currentKey->keyWasPressed = true;
             currentKey->keyWasReleased = false;
@@ -209,4 +289,22 @@ bool LoadTextures(Texture * textures){
         }
     }
     return true;
+}
+
+OpenglCoords ScreenToOpenglCoords(float x, float y){
+    OpenglCoords local;
+    local.x = (x / globalWindowWidth) * globalOpenglX;
+    local.y = (y / globalWindowHeight) * globalOpenglY;
+    return local;
+} 
+
+bool CardWasClicked(Card * card, OpenglCoords coords){
+    float leftX = card->position.x - card->scale.x;
+    float leftY = card->position.y - card->scale.y;
+    float rightX = card->position.x + card->scale.x;
+    float rightY = card->position.y + card->scale.y;
+    
+    bool isInOnXAxis = coords.x >= leftX && coords.x <= rightX;
+    bool isInOnYAxis = coords.y >= leftY && coords.y <= rightY;
+    return isInOnXAxis && isInOnYAxis;
 }

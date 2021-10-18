@@ -2,12 +2,10 @@
 #define VAO_H
 #include "openglIncludes.h"
 
-class VertexArrayObject{
-    public:
+struct VertexArrayObject{
     VertexArrayObject(float * vertices, int numberOfVertices);
     void Attach();
     void Draw();
-    private:
     GLuint VAO, VBO;
     int numberOfVertices;
 };

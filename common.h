@@ -1,8 +1,12 @@
 #ifndef COMMON_H
 #define COMMON_H
 
-enum CardSuit { DIAMONDS, CLUBS, SPADES, HEARTS };
-enum CardRank { 
+enum Suit { DIAMONDS,
+    CLUBS,
+    SPADES,
+    HEARTS,
+    SUIT_NONE};
+enum Rank { 
     RANK_ACE,
     RANK_TWO,
     RANK_THREE,
@@ -15,7 +19,8 @@ enum CardRank {
     RANK_TEN,
     RANK_JACK,
     RANK_QUEEN,
-    RANK_KING
+    RANK_KING,
+    RANK_NONE
 };
 
 #endif //COMMON_H

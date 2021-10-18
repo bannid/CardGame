@@ -7,8 +7,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
-class Shader {
-    public:
+struct Shader {
     Shader(const char * vertexShaderPath,
            const char * fragmentShaderPath);
     bool CompileAndLink();
@@ -19,7 +18,6 @@ class Shader {
     void SetVec3(const char * name, glm::vec3 vector)const;
     void SetVec4(const char * name, glm::vec4 vector)const;
     void SetMat4(const char * name, glm::mat4 mat)const;
-    private:
     const char * vertexShaderPath;
     const char * fragmentShaderPath;
     win32_file vertexShaderSource;
