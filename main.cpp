@@ -12,6 +12,8 @@
 #include "cardTypes.h"
 #include "animators.h"
 #include "input.h"
+#include "card.h"
+#include "misc.h"
 
 #define SIZE_OF_ARRAY(array, type) sizeof(array) / sizeof(type)
 
@@ -31,34 +33,6 @@ struct OpenglCoords{
     float x;
     float y;
 };
-
-struct Card{
-    Suit suit;
-    Rank rank;
-    glm::vec3 position;
-    glm::vec3 scale;
-    bool isFlipped;
-    AnimationRotate rotateAnimation;
-    float rotateY = 0.0f;
-    Card(Suit suit,
-         Rank rank,
-         glm::vec3 position,
-         glm::vec3 scale){
-        this->suit = suit;
-        this->rank = rank;
-        this->isFlipped = false;
-        this->position = position;
-        this->scale = scale;
-    }
-    Card(){
-        this->suit = SUIT_NONE;
-        this->rank = RANK_NONE;
-        this->isFlipped = false;
-        this->position = glm::vec3(0.0f);
-        this->scale = glm::vec3(1.0f);
-    }
-};
-
 //Textures
 bool LoadTextures(Texture * textures);
 OpenglCoords ScreenToOpenglCoords(float x, float y);
@@ -95,19 +69,6 @@ bool LoadGlad(){
         return false;
     }
     return true;
-}
-
-float LinearInterpolation(float first, float second, float weight){
-    
-    float result = weight  * second + (1.0f - weight) * first;
-    return result;
-}
-
-float CosineInterpolation(float first, float second, float weight){
-    float modifiedWeight = (1 - cos(weight * 3.14))/2.0f;
-    modifiedWeight = pow(modifiedWeight, 0.2f);
-    float result = modifiedWeight  * second + (1.0f - modifiedWeight) * first;
-    return result;
 }
 
 int CALLBACK WinMain(HINSTANCE instance,
@@ -172,30 +133,29 @@ int CALLBACK WinMain(HINSTANCE instance,
         Key(GLFW_MOUSE_BUTTON_LEFT)
     };
     
-    Card card;
     Object3D obj1;
     Object3D obj2;
     const float scale = 30.0f;
     const float offsetX = 10.0f;
     const float offsetY = 10.0f;
-    card.scale = glm::vec3(scale, scale, 1.0f);
-    card.position = glm::vec3(scale + offsetX, scale + offsetY, 0.0f);
-    obj1.Scale(glm::vec3(scale, scale, 1.0f));
-    obj2.Scale(glm::vec3(scale, scale, 1.0f));
-    obj1.Translate(glm::vec3(scale + offsetX, scale + offsetY, 0.0f));
-    obj2.Translate(glm::vec3(scale + offsetX, scale + offsetY, 0.0f));
+    const int numberOfColumns = 4;
+    const int numberOfRows = 4;
+    Card cards[numberOfColumns * numberOfRows];
+    cards[0].suit = DIAMONDS;
+    cards[0].rank = RANK_QUEEN;
+    cards[1].suit = CLUBS;
+    cards[1].rank = RANK_KING;
+    cards[0].scale = glm::vec3(scale, scale, 1.0f);
+    cards[0].position = glm::vec3(scale + offsetX, scale + offsetY, 0.0f);
+    cards[1].scale = glm::vec3(scale, scale, 1.0f);
+    cards[1].position = glm::vec3(scale + offsetX + ( 2.0f * scale), scale + offsetY, 0.0f);
     obj1.rotation = 180.0f;
     while(!glfwWindowShouldClose(window)){
         float currentTime = glfwGetTime();
         float elapsedTime = currentTime - time;
         time = currentTime;
-        UpdateAnimationState(&card, elapsedTime);
         glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
-        textures[0].Attach();
-        obj1.Draw(&shader, &vao);
-        cardBack.Attach();
-        obj2.Draw(&shader, &vao);
         //Update the input states.
         UpdateInputState(window, 
                          keyboardKeys,
@@ -211,21 +171,37 @@ int CALLBACK WinMain(HINSTANCE instance,
             double x, y;
             glfwGetCursorPos(window, &x, &y);
             OpenglCoords coordsOpengl = ScreenToOpenglCoords(x, y);
-            std::cout << coordsOpengl.x << "," << coordsOpengl.y << std::endl;
-            if(CardWasClicked(&card, coordsOpengl)){
-                if(!card.rotateAnimation.isActive){
-                    card.rotateAnimation.isActive = true;
-                    card.rotateAnimation.startingValue = card.rotateY;
-                    card.rotateAnimation.endingValue = card.rotateY + 180.0f;
+            for(int i = 0; i<2; i++){
+                Card * card = cards + i;
+                if(CardWasClicked(card, coordsOpengl)){
+                    if(!card->rotateAnimation.isActive){
+                        card->rotateAnimation.isActive = true;
+                        card->rotateAnimation.startingValue = card->rotateY;
+                        card->rotateAnimation.endingValue = card->rotateY + 180.0f;
+                    }
                 }
             }
         }
-        if(card.rotateAnimation.isActive){
-            float weight = card.rotateAnimation.timeAccumulator / card.rotateAnimation.totalTime;
-            AnimationRotate rot = card.rotateAnimation;
-            card.rotateY = CosineInterpolation(rot.startingValue , rot.endingValue, weight);
-            obj2.rotation = card.rotateY;
-            obj1.rotation = card.rotateY + 180.0f;
+        for(int i = 0; i < 2; i++){
+            Card * card = cards + i;
+            UpdateAnimationState(card, elapsedTime);
+            obj1.scale = card->scale;
+            obj2.scale = card->scale;
+            obj1.position = card->position;
+            obj2.position = card->position;
+            obj1.rotation = card->rotateY + 180.0f;
+            obj2.rotation = card->rotateY;
+            if(card->rotateAnimation.isActive){
+                float weight = card->rotateAnimation.timeAccumulator / card->rotateAnimation.totalTime;
+                AnimationRotate rot = card->rotateAnimation;
+                card->rotateY = CosineInterpolation(rot.startingValue , rot.endingValue, weight);
+                obj2.rotation = card->rotateY;
+                obj1.rotation = card->rotateY + 180.0f;
+            }
+            textures[card->rank + card->suit * 13].Attach();
+            obj1.Draw(&shader, &vao);
+            cardBack.Attach();
+            obj2.Draw(&shader, &vao);
         }
         glfwSwapBuffers(window);
         glfwPollEvents();
