@@ -4,6 +4,9 @@
 #include <time.h>
 #include <math.h>
 #include <string>
+#include "imgui.h"
+#include "imgui_impl_glfw.h"
+#include "imgui_impl_opengl3.h"
 #include "win32_fileapi.h"
 #include "openglIncludes.h"
 #include "glmIncludes.h"
@@ -177,12 +180,22 @@ int CALLBACK WinMain(HINSTANCE instance,
         }
     }
     obj1.rotation = 180.0f;
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+    ImGuiIO& io = ImGui::GetIO(); (void)io;
+    ImGui::StyleColorsDark();
+    ImGui_ImplGlfw_InitForOpenGL(window, true);
+    ImGui_ImplOpenGL3_Init("#version 330");
     while(!glfwWindowShouldClose(window)){
         float currentTime = glfwGetTime();
         float elapsedTime = currentTime - time;
         time = currentTime;
         glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
+        //Imgui
+        ImGui_ImplOpenGL3_NewFrame();
+        ImGui_ImplGlfw_NewFrame();
+        ImGui::NewFrame();
         //Update the input states.
         //Keyboard
         UpdateInputState(window, 
@@ -266,10 +279,18 @@ int CALLBACK WinMain(HINSTANCE instance,
             cardBack.Attach();
             obj2.Draw(&shader, &vao);
         }
+        ImGui::Begin("Hi there");
+        ImGui::Text("Whatever");
+        ImGui::End();
+        ImGui::Render();
+        ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
         
         glfwSwapBuffers(window);
         glfwPollEvents();
     }
+    ImGui_ImplOpenGL3_Shutdown();
+    ImGui_ImplGlfw_Shutdown();
+    ImGui::DestroyContext();
     glfwTerminate();
     return 0;
 }
