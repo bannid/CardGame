@@ -35,7 +35,7 @@ bool GetKeyFromArray(int keyCode, Key * keys, int numberOfKeys, Key * out){
 }
 
 
-bool KeyWasPressed(int keyCode, Key * keysArray, int sizeOfKeysArray){
+bool KeyWasReleased(int keyCode, Key * keysArray, int sizeOfKeysArray){
     Key key;
     if(GetKeyFromArray(GLFW_MOUSE_BUTTON_LEFT,
                        keysArray,

@@ -71,6 +71,25 @@ bool LoadGlad(){
     return true;
 }
 
+void ClickCard(Card * card){
+    if(!card->rotateAnimation.isActive){
+        card->rotateAnimation.isActive = true;
+        card->rotateAnimation.startingValue = card->rotateY;
+        card->rotateAnimation.endingValue = card->rotateY + 180.0f;
+        card->isFlipped = !card->isFlipped;
+    }
+}
+
+int GetNumberOfFlippedCards(Card * cards, int numberOfCards){
+    int number = 0;
+    for(int i = 0; i<numberOfCards; i++){
+        if(cards[i].isFlipped){
+            number++;
+        }
+    }
+    return number;
+}
+
 int CALLBACK WinMain(HINSTANCE instance,
 					 HINSTANCE prevInstance,
 					 LPSTR commandLine,
@@ -138,8 +157,10 @@ int CALLBACK WinMain(HINSTANCE instance,
     const float scale = 30.0f;
     const float offsetX = 10.0f;
     const float offsetY = 10.0f;
+    //Setup the cards.
     const int numberOfColumns = 4;
     const int numberOfRows = 4;
+    const int totalNumberOfCards = numberOfColumns * numberOfRows;
     Card cards[numberOfColumns * numberOfRows];
     for(int col = 0; col<numberOfColumns; col++){
         for(int row = 0; row<numberOfRows; row++){
@@ -161,33 +182,68 @@ int CALLBACK WinMain(HINSTANCE instance,
         glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
         //Update the input states.
+        //Keyboard
         UpdateInputState(window, 
                          keyboardKeys,
                          SIZE_OF_ARRAY(keyboardKeys, Key),
                          glfwGetKey);
+        //Mouse
         UpdateInputState(window,
                          mouseKeys,
                          SIZE_OF_ARRAY(mouseKeys, Key),
                          glfwGetMouseButton);
-        if(KeyWasPressed(GLFW_MOUSE_BUTTON_LEFT,
-                         mouseKeys,
-                         SIZE_OF_ARRAY(mouseKeys, Key))){
+        
+        //Rotate all the cards that shouldn't be flipped
+        for(int i = 0; i<totalNumberOfCards; i++){
+            Card * card = cards + i;
+            if(card->shouldntBeFlipped && !card->rotateAnimation.isActive){
+                ClickCard(card);
+                card->shouldntBeFlipped = false;
+            }
+        }
+        Card * cardClicked = NULL;
+        //If the left mouse was clicked
+        if(KeyWasReleased(GLFW_MOUSE_BUTTON_LEFT,
+                          mouseKeys,
+                          SIZE_OF_ARRAY(mouseKeys, Key))){
             double x, y;
             glfwGetCursorPos(window, &x, &y);
             OpenglCoords coordsOpengl = ScreenToOpenglCoords(x, y);
-            for(int i = 0; i<16; i++){
+            for(int i = 0; i<totalNumberOfCards; i++){
                 Card * card = cards + i;
                 if(CardWasClicked(card, coordsOpengl)){
-                    if(!card->rotateAnimation.isActive){
-                        card->rotateAnimation.isActive = true;
-                        card->rotateAnimation.startingValue = card->rotateY;
-                        card->rotateAnimation.endingValue = card->rotateY + 180.0f;
-                        card->isFlipped = !card->isFlipped;
+                    ClickCard(card);
+                    cardClicked = card;
+                }
+            }
+        }
+        //We check if the card clicked was flipped.
+        if(cardClicked != NULL && cardClicked->isFlipped){
+            //We check if there are more than 2 cards flipped.
+            int totalFlippedCards = GetNumberOfFlippedCards(cards,
+                                                            totalNumberOfCards);
+            if(totalFlippedCards > 2){
+                //If there are more than two flipped cards,
+                //we want to flip back all the cards that were flipped
+                //previously.
+                for(int i = 0; i<totalNumberOfCards; i++){
+                    Card * card = cards + i;
+                    if( card != cardClicked && card->isFlipped){
+                        //If the previous card is still animating,
+                        //set a flag to make sure the card will be set back.
+                        if(card->rotateAnimation.isActive){
+                            card->shouldntBeFlipped = true;
+                        }
+                        //Otherwise just click the card
+                        else{
+                            ClickCard(card);
+                        }
                     }
                 }
             }
         }
-        for(int i = 0; i < 16; i++){
+        //Main loop that draws all the cards.
+        for(int i = 0; i < totalNumberOfCards; i++){
             Card * card = cards + i;
             UpdateAnimationState(card, elapsedTime);
             obj1.scale = card->scale;

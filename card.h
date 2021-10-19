@@ -18,6 +18,7 @@ struct Card{
          glm::vec3 position,
          glm::vec3 scale);
     Card();
+    bool shouldntBeFlipped = false;
 };
 
 #endif //CARD_H

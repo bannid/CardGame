@@ -25,6 +25,6 @@ struct Key{
 void UpdateInputState(GLFWwindow * window, Key * keys, int numberOfKeys,
                       KeyPressCheckCallback keyPressCheck);
 bool GetKeyFromArray(int keyCode, Key * keys, int numberOfKeys, Key * out);
-bool KeyWasPressed(int keyCode, Key * keysArray, int sizeOfKeysArray);
+bool KeyWasReleased(int keyCode, Key * keysArray, int sizeOfKeysArray);
 
 #endif //INPUT_H
