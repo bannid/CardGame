@@ -1,5 +1,7 @@
 #include <iostream>
 #include <windows.h>
+#include <stdlib.h>
+#include <time.h>
 #include <math.h>
 #include <string>
 #include "win32_fileapi.h"
@@ -159,15 +161,15 @@ int CALLBACK WinMain(HINSTANCE instance,
     const float offsetY = 10.0f;
     //Setup the cards.
     const int numberOfColumns = 4;
-    const int numberOfRows = 4;
+    const int numberOfRows = 5;
     const int totalNumberOfCards = numberOfColumns * numberOfRows;
     Card cards[numberOfColumns * numberOfRows];
     for(int col = 0; col<numberOfColumns; col++){
         for(int row = 0; row<numberOfRows; row++){
-            int index = row + col * numberOfColumns;
+            int index = row + col * numberOfRows;
             Card * card = cards + index;
-            card->suit = DIAMONDS;
-            card->rank = RANK_FOUR;
+            card->suit = (Suit)(rand() % 4);
+            card->rank = (Rank)(rand() % 13);
             card->scale = glm::vec3(scale, scale, 1.0f);
             card->position = glm::vec3(scale + (col * scale * 2.0f) + (offsetX * col) + offsetX,
                                        scale + (row * scale * 2.0f) + (offsetY * row) + offsetY,
