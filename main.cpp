@@ -11,13 +11,12 @@
 #include "model.h"
 #include "cardTypes.h"
 #include "animators.h"
+#include "input.h"
 
 #define SIZE_OF_ARRAY(array, type) sizeof(array) / sizeof(type)
 
 #define NUMBER_OF_COLUMNS 4
 #define NUMBER_OF_ROWS 4
-
-typedef int(*KeyPressCheckCallback)(GLFWwindow*, int);
 
 //Globals
 static float globalAspectRatio = 1.0f;
@@ -33,22 +32,6 @@ struct OpenglCoords{
     float y;
 };
 
-struct Key{
-    int keyCode;
-    bool keyWasPressed;
-    bool keyWasReleased;
-    Key(int keyCode){ 
-        this->keyCode = keyCode;
-        this->keyWasPressed = false;
-        this->keyWasReleased = false;
-    }
-    Key(){
-        this->keyCode = 0;
-        this->keyWasPressed = false;
-        this->keyWasReleased = false;
-    }
-};
-
 struct Card{
     Suit suit;
     Rank rank;
@@ -56,8 +39,7 @@ struct Card{
     glm::vec3 scale;
     bool isFlipped;
     AnimationRotate rotateAnimation;
-    AnimationChime chimeAnimation;
-    float rotateY = 180.0f;
+    float rotateY = 0.0f;
     Card(Suit suit,
          Rank rank,
          glm::vec3 position,
@@ -76,10 +58,7 @@ struct Card{
         this->scale = glm::vec3(1.0f);
     }
 };
-//Input functions
-void UpdateInputState(GLFWwindow * window, Key * keys, int numberOfKeys,
-                      KeyPressCheckCallback keyPressCheck);
-bool GetKeyFromArray(int keyCode, Key * keys, int numberOfKeys, Key * out);
+
 //Textures
 bool LoadTextures(Texture * textures);
 OpenglCoords ScreenToOpenglCoords(float x, float y);
@@ -217,6 +196,7 @@ int CALLBACK WinMain(HINSTANCE instance,
         obj1.Draw(&shader, &vao);
         cardBack.Attach();
         obj2.Draw(&shader, &vao);
+        //Update the input states.
         UpdateInputState(window, 
                          keyboardKeys,
                          SIZE_OF_ARRAY(keyboardKeys, Key),
@@ -225,29 +205,27 @@ int CALLBACK WinMain(HINSTANCE instance,
                          mouseKeys,
                          SIZE_OF_ARRAY(mouseKeys, Key),
                          glfwGetMouseButton);
-        Key mouseKey;
-        if(GetKeyFromArray(GLFW_MOUSE_BUTTON_LEFT,
-                           mouseKeys,
-                           SIZE_OF_ARRAY(mouseKeys, Key),
-                           &mouseKey)){
-            if(mouseKey.keyWasReleased){
-                double x, y;
-                glfwGetCursorPos(window, &x, &y);
-                OpenglCoords coordsOpengl = ScreenToOpenglCoords(x, y);
-                std::cout << coordsOpengl.x << "," << coordsOpengl.y << std::endl;
-                if(CardWasClicked(&card, coordsOpengl)){
-                    if(!card.rotateAnimation.isActive){
-                        card.rotateAnimation.isActive = true;
-                        obj2.targetRotation = obj2.rotation + 180.0f;
-                        obj1.targetRotation = obj1.rotation + 180.0f;
-                    }
+        if(KeyWasPressed(GLFW_MOUSE_BUTTON_LEFT,
+                         mouseKeys,
+                         SIZE_OF_ARRAY(mouseKeys, Key))){
+            double x, y;
+            glfwGetCursorPos(window, &x, &y);
+            OpenglCoords coordsOpengl = ScreenToOpenglCoords(x, y);
+            std::cout << coordsOpengl.x << "," << coordsOpengl.y << std::endl;
+            if(CardWasClicked(&card, coordsOpengl)){
+                if(!card.rotateAnimation.isActive){
+                    card.rotateAnimation.isActive = true;
+                    card.rotateAnimation.startingValue = card.rotateY;
+                    card.rotateAnimation.endingValue = card.rotateY + 180.0f;
                 }
             }
         }
         if(card.rotateAnimation.isActive){
             float weight = card.rotateAnimation.timeAccumulator / card.rotateAnimation.totalTime;
-            obj2.rotation = CosineInterpolation(obj2.targetRotation - 180.0f, obj2.targetRotation, weight);
-            obj1.rotation = CosineInterpolation(obj1.targetRotation - 180.0f, obj1.targetRotation, weight);
+            AnimationRotate rot = card.rotateAnimation;
+            card.rotateY = CosineInterpolation(rot.startingValue , rot.endingValue, weight);
+            obj2.rotation = card.rotateY;
+            obj1.rotation = card.rotateY + 180.0f;
         }
         glfwSwapBuffers(window);
         glfwPollEvents();
@@ -269,41 +247,6 @@ void UpdateAnimationState(Card * card, float elapsedTime){
     }
     
 }
-
-void UpdateInputState(GLFWwindow * window,
-                      Key * keys,
-                      int numberOfKeys,
-                      KeyPressCheckCallback functionToCheckPresses){
-    for(int i = 0; i<numberOfKeys; i++){
-        Key * currentKey = keys + i;
-        int state = functionToCheckPresses(window, currentKey->keyCode);
-        if(state == GLFW_PRESS){
-            currentKey->keyWasPressed = true;
-            currentKey->keyWasReleased = false;
-        }
-        else if(state == GLFW_RELEASE){
-            if(currentKey->keyWasPressed == true){
-                currentKey->keyWasReleased = true;
-            }
-            else{
-                currentKey->keyWasReleased = false;
-            }
-            currentKey->keyWasPressed = false;
-        }
-    }
-}
-
-bool GetKeyFromArray(int keyCode, Key * keys, int numberOfKeys, Key * out){
-    for(int i = 0; i<numberOfKeys; i++){
-        Key key = keys[i];
-        if (key.keyCode == keyCode){
-            *out = key;
-            return true;
-        }
-    }
-    return false;
-}
-
 
 bool LoadTextures(Texture * textures){
     std::string stringOne("card-");

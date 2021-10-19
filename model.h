@@ -13,7 +13,6 @@ struct Object3D{
     glm::vec3 position;
     glm::vec3 scale;
     float rotation;
-    float targetRotation = 0.0f;
     void Initialize();
 };
 
