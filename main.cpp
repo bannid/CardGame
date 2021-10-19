@@ -141,14 +141,18 @@ int CALLBACK WinMain(HINSTANCE instance,
     const int numberOfColumns = 4;
     const int numberOfRows = 4;
     Card cards[numberOfColumns * numberOfRows];
-    cards[0].suit = DIAMONDS;
-    cards[0].rank = RANK_QUEEN;
-    cards[1].suit = CLUBS;
-    cards[1].rank = RANK_KING;
-    cards[0].scale = glm::vec3(scale, scale, 1.0f);
-    cards[0].position = glm::vec3(scale + offsetX, scale + offsetY, 0.0f);
-    cards[1].scale = glm::vec3(scale, scale, 1.0f);
-    cards[1].position = glm::vec3(scale + offsetX + ( 2.0f * scale), scale + offsetY, 0.0f);
+    for(int col = 0; col<numberOfColumns; col++){
+        for(int row = 0; row<numberOfRows; row++){
+            int index = row + col * numberOfColumns;
+            Card * card = cards + index;
+            card->suit = DIAMONDS;
+            card->rank = RANK_FOUR;
+            card->scale = glm::vec3(scale, scale, 1.0f);
+            card->position = glm::vec3(scale + (col * scale * 2.0f) + (offsetX * col) + offsetX,
+                                       scale + (row * scale * 2.0f) + (offsetY * row) + offsetY,
+                                       0.0f);
+        }
+    }
     obj1.rotation = 180.0f;
     while(!glfwWindowShouldClose(window)){
         float currentTime = glfwGetTime();
@@ -171,18 +175,19 @@ int CALLBACK WinMain(HINSTANCE instance,
             double x, y;
             glfwGetCursorPos(window, &x, &y);
             OpenglCoords coordsOpengl = ScreenToOpenglCoords(x, y);
-            for(int i = 0; i<2; i++){
+            for(int i = 0; i<16; i++){
                 Card * card = cards + i;
                 if(CardWasClicked(card, coordsOpengl)){
                     if(!card->rotateAnimation.isActive){
                         card->rotateAnimation.isActive = true;
                         card->rotateAnimation.startingValue = card->rotateY;
                         card->rotateAnimation.endingValue = card->rotateY + 180.0f;
+                        card->isFlipped = !card->isFlipped;
                     }
                 }
             }
         }
-        for(int i = 0; i < 2; i++){
+        for(int i = 0; i < 16; i++){
             Card * card = cards + i;
             UpdateAnimationState(card, elapsedTime);
             obj1.scale = card->scale;
@@ -203,6 +208,7 @@ int CALLBACK WinMain(HINSTANCE instance,
             cardBack.Attach();
             obj2.Draw(&shader, &vao);
         }
+        
         glfwSwapBuffers(window);
         glfwPollEvents();
     }
