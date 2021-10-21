@@ -77,22 +77,99 @@ bool LoadGlad(){
 }
 
 void ClickCard(Card * card){
-    if(!card->rotateAnimation.isActive){
+    if(!card->rotateAnimation.isActive && !card->isMatched){
         card->rotateAnimation.isActive = true;
         card->rotateAnimation.startingValue = card->rotateY;
         card->rotateAnimation.endingValue = card->rotateY + 180.0f;
         card->isFlipped = !card->isFlipped;
+    }
+    else{
+        card->clickCounter++;
     }
 }
 
 int GetNumberOfFlippedCards(Card * cards, int numberOfCards){
     int number = 0;
     for(int i = 0; i<numberOfCards; i++){
-        if(cards[i].isFlipped){
+        if(cards[i].isFlipped && !cards[i].isMatched){
             number++;
         }
     }
     return number;
+}
+
+inline void UpdateGame(Card * cards, int totalNumberOfCards){
+    //Rotate all the cards that shouldn't be flipped
+    for(int i = 0; i<totalNumberOfCards; i++){
+        Card * card = cards + i;
+        if(card->shouldntBeFlipped && !card->rotateAnimation.isActive){
+            ClickCard(card);
+            card->shouldntBeFlipped = false;
+        }
+    }
+    Card * cardClicked = NULL;
+    //If the left mouse button was clicked
+    if(Input::MouseKeyWasReleased(GLFW_MOUSE_BUTTON_LEFT)){
+        double x, y;
+        Input::GetMousePositions(&x, &y);
+        OpenglCoords coordsOpengl = ScreenToOpenglCoords(x, y);
+        for(int i = 0; i<totalNumberOfCards; i++){
+            Card * card = cards + i;
+            if(CardWasClicked(card, coordsOpengl)){
+                ClickCard(card);
+                cardClicked = card;
+            }
+        }
+    }
+    //We check if the card clicked was flipped.
+    if(cardClicked != NULL && cardClicked->isFlipped){
+        //We check if there are more than 2 cards flipped.
+        int totalFlippedCards = GetNumberOfFlippedCards(cards,
+                                                        totalNumberOfCards);
+        if(totalFlippedCards == 2){
+            Card * firstCard = NULL;
+            Card * secondCard = NULL;
+            int counter = 0;
+            for(int i = 0; i<totalNumberOfCards; i++){
+                Card * card = cards + i;
+                if(card->isFlipped){
+                    if(counter == 0){
+                        firstCard = card;
+                        counter++;
+                    }
+                    else {
+                        secondCard = card;
+                        counter++;
+                    }
+                    
+                }
+            }
+            if(firstCard->suit == secondCard->suit && 
+               firstCard->rank == secondCard->rank){
+                firstCard->isMatched = true;
+                secondCard->isMatched = true;
+            }
+        }
+        else if(totalFlippedCards > 2){
+            //If there are more than two flipped cards,
+            //we want to flip back all the cards that were flipped
+            //previously.
+            for(int i = 0; i<totalNumberOfCards; i++){
+                Card * card = cards + i;
+                if( card != cardClicked && card->isFlipped && !card->isMatched){
+                    //If the previous card is still animating,
+                    //set a flag to make sure the card will be flipped  back.
+                    if(card->rotateAnimation.isActive){
+                        card->shouldntBeFlipped = true;
+                    }
+                    //Otherwise just click the card
+                    else{
+                        ClickCard(card);
+                    }
+                }
+            }
+        }
+    }
 }
 
 int CALLBACK WinMain(HINSTANCE instance,
@@ -146,16 +223,6 @@ int CALLBACK WinMain(HINSTANCE instance,
     shader.SetMat4("uCamMat", camMat);
     double time = glfwGetTime();
     glfwSwapInterval(1);
-    Key keyboardKeys[] = {
-        Key(GLFW_KEY_LEFT),
-        Key(GLFW_KEY_RIGHT),
-        Key(GLFW_KEY_UP),
-        Key(GLFW_KEY_DOWN)
-    };
-    
-    Key mouseKeys[] = {
-        Key(GLFW_MOUSE_BUTTON_LEFT)
-    };
     
     Object3D obj1;
     Object3D obj2;
@@ -173,19 +240,20 @@ int CALLBACK WinMain(HINSTANCE instance,
             Card * card = cards + index;
             card->suit = (Suit)(rand() % 4);
             card->rank = (Rank)(rand() % 13);
-            card->scale = glm::vec3(scale, scale, 1.0f);
-            card->position = glm::vec3(scale + (col * scale * 2.0f) + (offsetX * col) + offsetX,
+            float scaleX = scale / globalAspectRatio;
+            card->scale = glm::vec3(scaleX, scale, 1.0f);
+            card->position = glm::vec3(scaleX + (col * scaleX * 2.0f) + (offsetX * col) + offsetX,
                                        scale + (row * scale * 2.0f) + (offsetY * row) + offsetY,
                                        0.0f);
         }
     }
-    obj1.rotation = 180.0f;
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO(); (void)io;
     ImGui::StyleColorsDark();
     ImGui_ImplGlfw_InitForOpenGL(window, true);
     ImGui_ImplOpenGL3_Init("#version 330");
+    Input::Initialize(window);
     while(!glfwWindowShouldClose(window)){
         float currentTime = glfwGetTime();
         float elapsedTime = currentTime - time;
@@ -196,67 +264,9 @@ int CALLBACK WinMain(HINSTANCE instance,
         ImGui_ImplOpenGL3_NewFrame();
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
-        //Update the input states.
-        //Keyboard
-        UpdateInputState(window, 
-                         keyboardKeys,
-                         SIZE_OF_ARRAY(keyboardKeys, Key),
-                         glfwGetKey);
-        //Mouse
-        UpdateInputState(window,
-                         mouseKeys,
-                         SIZE_OF_ARRAY(mouseKeys, Key),
-                         glfwGetMouseButton);
         
-        //Rotate all the cards that shouldn't be flipped
-        for(int i = 0; i<totalNumberOfCards; i++){
-            Card * card = cards + i;
-            if(card->shouldntBeFlipped && !card->rotateAnimation.isActive){
-                ClickCard(card);
-                card->shouldntBeFlipped = false;
-            }
-        }
-        Card * cardClicked = NULL;
-        //If the left mouse was clicked
-        if(KeyWasReleased(GLFW_MOUSE_BUTTON_LEFT,
-                          mouseKeys,
-                          SIZE_OF_ARRAY(mouseKeys, Key))){
-            double x, y;
-            glfwGetCursorPos(window, &x, &y);
-            OpenglCoords coordsOpengl = ScreenToOpenglCoords(x, y);
-            for(int i = 0; i<totalNumberOfCards; i++){
-                Card * card = cards + i;
-                if(CardWasClicked(card, coordsOpengl)){
-                    ClickCard(card);
-                    cardClicked = card;
-                }
-            }
-        }
-        //We check if the card clicked was flipped.
-        if(cardClicked != NULL && cardClicked->isFlipped){
-            //We check if there are more than 2 cards flipped.
-            int totalFlippedCards = GetNumberOfFlippedCards(cards,
-                                                            totalNumberOfCards);
-            if(totalFlippedCards > 2){
-                //If there are more than two flipped cards,
-                //we want to flip back all the cards that were flipped
-                //previously.
-                for(int i = 0; i<totalNumberOfCards; i++){
-                    Card * card = cards + i;
-                    if( card != cardClicked && card->isFlipped){
-                        //If the previous card is still animating,
-                        //set a flag to make sure the card will be set back.
-                        if(card->rotateAnimation.isActive){
-                            card->shouldntBeFlipped = true;
-                        }
-                        //Otherwise just click the card
-                        else{
-                            ClickCard(card);
-                        }
-                    }
-                }
-            }
-        }
+        Input::UpdateInputState();
+        UpdateGame(cards, totalNumberOfCards);
         //Main loop that draws all the cards.
         for(int i = 0; i < totalNumberOfCards; i++){
             Card * card = cards + i;
@@ -279,8 +289,9 @@ int CALLBACK WinMain(HINSTANCE instance,
             cardBack.Attach();
             obj2.Draw(&shader, &vao);
         }
-        ImGui::Begin("Hi there");
-        ImGui::Text("Whatever");
+        ImGui::Begin("General info");
+        ImGui::Text("LF: %0f ms", elapsedTime * 1000.0f);
+        ImGui::Text("FPS: %0f", 1.0f / elapsedTime);
         ImGui::End();
         ImGui::Render();
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());

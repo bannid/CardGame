@@ -11,6 +11,7 @@ struct Card{
     glm::vec3 position;
     glm::vec3 scale;
     bool isFlipped;
+    bool isMatched;
     AnimationRotate rotateAnimation;
     float rotateY = 0.0f;
     Card(Suit suit,
@@ -19,6 +20,7 @@ struct Card{
          glm::vec3 scale);
     Card();
     bool shouldntBeFlipped = false;
+    int clickCounter = 0;
 };
 
 #endif //CARD_H
