@@ -98,6 +98,16 @@ int GetNumberOfFlippedCards(Card * cards, int numberOfCards){
     return number;
 }
 
+int GetNumberOfMatchedCards(Card * cards, int numberOfCards){
+    int number = 0;
+    for(int i = 0; i<numberOfCards; i++){
+        if(cards[i].isMatched){
+            number++;
+        }
+    }
+    return number;
+}
+
 inline void UpdateGame(Card * cards, int totalNumberOfCards){
     //Rotate all the cards that shouldn't be flipped
     for(int i = 0; i<totalNumberOfCards; i++){
@@ -132,7 +142,7 @@ inline void UpdateGame(Card * cards, int totalNumberOfCards){
             int counter = 0;
             for(int i = 0; i<totalNumberOfCards; i++){
                 Card * card = cards + i;
-                if(card->isFlipped){
+                if(card->isFlipped && !card->isMatched){
                     if(counter == 0){
                         firstCard = card;
                         counter++;
@@ -247,6 +257,16 @@ int CALLBACK WinMain(HINSTANCE instance,
                                        0.0f);
         }
     }
+    for(int i = 0; i<totalNumberOfCards / 2; i++){
+        Card * card = cards + i;
+        Card * cardOtherHalf = cards + i + totalNumberOfCards / 2;
+        Suit suit = (Suit)(rand() % 4);
+        Rank rank = (Rank)(rand() % 13);
+        card->suit = suit;
+        card->rank = rank;
+        cardOtherHalf->suit = suit;
+        cardOtherHalf->rank = rank;
+    }
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO(); (void)io;
@@ -288,6 +308,12 @@ int CALLBACK WinMain(HINSTANCE instance,
             obj1.Draw(&shader, &vao);
             cardBack.Attach();
             obj2.Draw(&shader, &vao);
+        }
+        
+        if(GetNumberOfMatchedCards(cards, totalNumberOfCards) == totalNumberOfCards){
+            ImGui::Begin("Game won");
+            ImGui::Text("Well done! You have won the game");
+            ImGui::End();
         }
         ImGui::Begin("General info");
         ImGui::Text("LF: %0f ms", elapsedTime * 1000.0f);
