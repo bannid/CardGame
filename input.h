@@ -32,5 +32,6 @@ namespace Input{
     bool MouseKeyWasReleased(int keyCode);
     bool KeyboardKeyWasReleased(int keyCode);
     void GetMousePositions(double * x, double * y);
+    void ResetState();
 }
 #endif //INPUT_H

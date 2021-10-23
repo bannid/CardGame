@@ -19,8 +19,10 @@
 #include "input.h"
 #include "card.h"
 #include "misc.h"
+#include "game.h"
+#include "ui.h"
 
-#define SIZE_OF_ARRAY(array, type) sizeof(array) / sizeof(type)
+#define ARR_SIZ(array, type) sizeof(array) / sizeof(type)
 
 #define NUMBER_OF_COLUMNS 4
 #define NUMBER_OF_ROWS 4
@@ -43,6 +45,11 @@ bool LoadTextures(Texture * textures);
 OpenglCoords ScreenToOpenglCoords(float x, float y);
 //Click handlers
 bool CardWasClicked(Card * card, OpenglCoords coords);
+bool RectangleWasClicked(float leftX, 
+                         float leftY, 
+                         float rightX, 
+                         float rightY, 
+                         OpenglCoords coords);
 //Animations 
 void UpdateAnimationState(Card * card, float elapsedTime);
 void FrameBufferSizeCallback(GLFWwindow * window, int width, int height){
@@ -108,7 +115,8 @@ int GetNumberOfMatchedCards(Card * cards, int numberOfCards){
     return number;
 }
 
-inline void UpdateGame(Card * cards, int totalNumberOfCards){
+inline void UpdateGame(Game * game, int totalNumberOfCards){
+    Card * cards = game->currentLevel->cards;
     //Rotate all the cards that shouldn't be flipped
     for(int i = 0; i<totalNumberOfCards; i++){
         Card * card = cards + i;
@@ -117,6 +125,7 @@ inline void UpdateGame(Card * cards, int totalNumberOfCards){
             card->shouldntBeFlipped = false;
         }
     }
+    if(game->state != PLAYING) return;
     Card * cardClicked = NULL;
     //If the left mouse button was clicked
     if(Input::MouseKeyWasReleased(GLFW_MOUSE_BUTTON_LEFT)){
@@ -182,6 +191,15 @@ inline void UpdateGame(Card * cards, int totalNumberOfCards){
     }
 }
 
+inline void UpdateAnimation(Card * card, Object3D * obj1, Object3D * obj2){
+    float weight = card->rotateAnimation.timeAccumulator / card->rotateAnimation.totalTime;
+    AnimationRotate rot = card->rotateAnimation;
+    card->rotateY = CosineInterpolation(rot.startingValue , rot.endingValue, weight);
+    obj2->rotation = card->rotateY;
+    obj1->rotation = card->rotateY + 180.0f;
+}
+
+
 int CALLBACK WinMain(HINSTANCE instance,
 					 HINSTANCE prevInstance,
 					 LPSTR commandLine,
@@ -194,6 +212,9 @@ int CALLBACK WinMain(HINSTANCE instance,
         glfwTerminate();
         return -1;
     }
+    // Enable blending
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     //Enable back face culling
     glEnable(GL_CULL_FACE);
     glCullFace(GL_BACK);
@@ -205,7 +226,9 @@ int CALLBACK WinMain(HINSTANCE instance,
     }
     //Load the textures.
     Texture cardBack("../assets/card-back2.png", 4);
-    if (!cardBack.Load()){
+    Texture startButton("../assets/UI/Start.png", 4);
+    Texture quitButton("../assets/UI/Quit.png", 4);
+    if (!cardBack.Load() || !startButton.Load() || !quitButton.Load()){
         glfwTerminate();
         return -1;
     }
@@ -224,7 +247,7 @@ int CALLBACK WinMain(HINSTANCE instance,
         1.0f, 1.0f, 1.0f, 1.0f, 1.0f, //bottom right
         1.0f, -1.0f, 1.0f, 1.0f, 0.0f //top right
     };
-    VertexArrayObject vao(vertices, SIZE_OF_ARRAY(vertices, float));
+    VertexArrayObject vao(vertices, ARR_SIZ(vertices, float));
     shader.Attach(); 
     vao.Attach();
     glm::mat4 projectionMat =  glm::ortho(0.0f, globalOpenglX, globalOpenglY, 0.0f, -500.0f, 500.0f); 
@@ -244,12 +267,11 @@ int CALLBACK WinMain(HINSTANCE instance,
     const int numberOfRows = 5;
     const int totalNumberOfCards = numberOfColumns * numberOfRows;
     Card cards[numberOfColumns * numberOfRows];
+    //Initialize all the cards.
     for(int col = 0; col<numberOfColumns; col++){
         for(int row = 0; row<numberOfRows; row++){
             int index = row + col * numberOfRows;
             Card * card = cards + index;
-            card->suit = (Suit)(rand() % 4);
-            card->rank = (Rank)(rand() % 13);
             float scaleX = scale / globalAspectRatio;
             card->scale = glm::vec3(scaleX, scale, 1.0f);
             card->position = glm::vec3(scaleX + (col * scaleX * 2.0f) + (offsetX * col) + offsetX,
@@ -257,6 +279,7 @@ int CALLBACK WinMain(HINSTANCE instance,
                                        0.0f);
         }
     }
+    //Assign two sets of random suits and ranks to the cards.
     for(int i = 0; i<totalNumberOfCards / 2; i++){
         Card * card = cards + i;
         Card * cardOtherHalf = cards + i + totalNumberOfCards / 2;
@@ -267,57 +290,100 @@ int CALLBACK WinMain(HINSTANCE instance,
         cardOtherHalf->suit = suit;
         cardOtherHalf->rank = rank;
     }
+    
+    Level level1;
+    level1.cards = cards;
+    
+    Game game;
+    game.currentLevel = &level1;
+    game.state = GameState::STARTMENU;
+    //Imgui
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO(); (void)io;
     ImGui::StyleColorsDark();
     ImGui_ImplGlfw_InitForOpenGL(window, true);
     ImGui_ImplOpenGL3_Init("#version 330");
+    //Initialize the input system.
     Input::Initialize(window);
-    while(!glfwWindowShouldClose(window)){
+    float offsetFromTop = 25.0f;
+    glm::vec3 buttonsPosition = glm::vec3(200.0f, 180.0f, 1.0f);
+    UI::Button startUpButtons[] = {
+        UI::Button(&startButton, &game, UI::StartGame, buttonsPosition),
+        UI::Button(&quitButton, &game, UI::QuitGame, buttonsPosition)
+    };
+    while(!glfwWindowShouldClose(window) && game.state != EXITED){
         float currentTime = glfwGetTime();
         float elapsedTime = currentTime - time;
         time = currentTime;
-        glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
-        glClear(GL_COLOR_BUFFER_BIT);
         //Imgui
         ImGui_ImplOpenGL3_NewFrame();
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
         
         Input::UpdateInputState();
-        UpdateGame(cards, totalNumberOfCards);
-        //Main loop that draws all the cards.
-        for(int i = 0; i < totalNumberOfCards; i++){
-            Card * card = cards + i;
-            UpdateAnimationState(card, elapsedTime);
-            obj1.scale = card->scale;
-            obj2.scale = card->scale;
-            obj1.position = card->position;
-            obj2.position = card->position;
-            obj1.rotation = card->rotateY + 180.0f;
-            obj2.rotation = card->rotateY;
-            if(card->rotateAnimation.isActive){
-                float weight = card->rotateAnimation.timeAccumulator / card->rotateAnimation.totalTime;
-                AnimationRotate rot = card->rotateAnimation;
-                card->rotateY = CosineInterpolation(rot.startingValue , rot.endingValue, weight);
-                obj2.rotation = card->rotateY;
-                obj1.rotation = card->rotateY + 180.0f;
+        switch(game.state){
+            case GameState::PLAYING:{
+                glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
+                glClear(GL_COLOR_BUFFER_BIT);
+                //Main loop that draws all the cards.
+                for(int i = 0; i < totalNumberOfCards; i++){
+                    Card * card = cards + i;
+                    UpdateAnimationState(card, elapsedTime);
+                    obj1.scale = card->scale;
+                    obj2.scale = card->scale;
+                    obj1.position = card->position;
+                    obj2.position = card->position;
+                    obj1.rotation = card->rotateY + 180.0f;
+                    obj2.rotation = card->rotateY;
+                    if(card->rotateAnimation.isActive){
+                        UpdateAnimation(card, &obj1, &obj2);
+                    }
+                    textures[card->rank + card->suit * 13].Attach();
+                    obj1.Draw(&shader, &vao);
+                    cardBack.Attach();
+                    obj2.Draw(&shader, &vao);
+                }
+                break;
             }
-            textures[card->rank + card->suit * 13].Attach();
-            obj1.Draw(&shader, &vao);
-            cardBack.Attach();
-            obj2.Draw(&shader, &vao);
+            case GameState::STARTMENU:{
+                glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
+                glClear(GL_COLOR_BUFFER_BIT);
+                obj2.scale = glm::vec3(20.0f, 10.0f, 1.0f);
+                for(int i = 0; i<ARR_SIZ(startUpButtons, UI::Button); i++){
+                    startUpButtons[i].texture->Attach();
+                    obj2.position = startUpButtons[i].position + glm::vec3(0.0f, offsetFromTop * i, 1.0f);
+                    obj2.Draw(&shader, &vao);
+                }
+                if(Input::MouseKeyWasReleased(GLFW_MOUSE_BUTTON_LEFT)){
+                    double x, y;
+                    Input::GetMousePositions(&x, &y);
+                    OpenglCoords coordsOpengl = ScreenToOpenglCoords(x, y);
+                    for(int i = 0; i<ARR_SIZ(startUpButtons, UI::Button); i++){
+                        UI::Button * button = startUpButtons + i;
+                        float leftX = button->position.x - obj2.scale.x;
+                        float leftY = button->position.y + (offsetFromTop * i) - obj2.scale.y;
+                        float rightX = button->position.x + obj2.scale.x;
+                        float rightY = button->position.y + (offsetFromTop * i) + obj2.scale.y;
+                        if(RectangleWasClicked(leftX, leftY, rightX, rightY, coordsOpengl)){
+                            button->callback(&game);
+                            Input::ResetState();
+                        }
+                    }
+                }
+                break;
+            }
+            case GameState::EXITING: {
+                game.state = GameState::EXITED;
+                break;
+            }
         }
-        
-        if(GetNumberOfMatchedCards(cards, totalNumberOfCards) == totalNumberOfCards){
-            ImGui::Begin("Game won");
-            ImGui::Text("Well done! You have won the game");
-            ImGui::End();
-        }
+        UpdateGame(&game, totalNumberOfCards);
         ImGui::Begin("General info");
         ImGui::Text("LF: %0f ms", elapsedTime * 1000.0f);
         ImGui::Text("FPS: %0f", 1.0f / elapsedTime);
+        float f0;
+        ImGui::InputFloat("input float", &offsetFromTop, 0.01f, 1.0f, "%.3f");
         ImGui::End();
         ImGui::Render();
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
@@ -384,7 +450,16 @@ bool CardWasClicked(Card * card, OpenglCoords coords){
     float leftY = card->position.y - card->scale.y;
     float rightX = card->position.x + card->scale.x;
     float rightY = card->position.y + card->scale.y;
-    
+    return RectangleWasClicked(leftX, leftY,
+                               rightX, rightY,
+                               coords);
+}
+
+bool RectangleWasClicked(float leftX, 
+                         float leftY, 
+                         float rightX, 
+                         float rightY, 
+                         OpenglCoords coords){
     bool isInOnXAxis = coords.x >= leftX && coords.x <= rightX;
     bool isInOnYAxis = coords.y >= leftY && coords.y <= rightY;
     return isInOnXAxis && isInOnYAxis;

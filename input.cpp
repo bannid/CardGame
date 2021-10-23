@@ -82,4 +82,9 @@ namespace Input{
         }
         return false;
     }
+    
+    void ResetState(){
+        Input::mouseKeys[0].keyWasPressed = false;
+        Input::mouseKeys[0].keyWasReleased = false;
+    }
 }

@@ -9,11 +9,19 @@ enum GameState{
     LOADING_LEVEL,
     PLAYING,
     PAUSED,
-    EXITING
+    GAME_OVER,
+    EXITING,
+    EXITED
+};
+
+struct Level{
+    Card * cards;
+    bool isWon = false;
 };
 
 struct Game {
-    
-}:
+    Level * currentLevel;
+    GameState state;
+};
 
 #endif //GAME_H

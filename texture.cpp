@@ -16,6 +16,7 @@ bool Texture::Load(const char * filePath, int desiredChannels){
 }
 
 bool Texture::Load(){
+    
     glGenTextures(1, &this->id);
     glBindTexture(GL_TEXTURE_2D, this->id);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);	
@@ -26,9 +27,10 @@ bool Texture::Load(){
                                     &this->width,
                                     &this->height, 
                                     &this->desiredChannels, 0);
+    int channels = this->desiredChannels == 4 ? GL_RGBA : GL_RGB;
     if (data)
     {
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, this->width, this->height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
+        glTexImage2D(GL_TEXTURE_2D, 0, channels, this->width, this->height, 0, channels, GL_UNSIGNED_BYTE, data);
         glGenerateMipmap(GL_TEXTURE_2D);
         stbi_image_free(data);
         return true;
