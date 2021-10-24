@@ -324,7 +324,7 @@ int CALLBACK WinMain(HINSTANCE instance,
         Input::UpdateInputState();
         switch(game.state){
             case GameState::PLAYING:{
-                glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
+                glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
                 glClear(GL_COLOR_BUFFER_BIT);
                 //Main loop that draws all the cards.
                 for(int i = 0; i < totalNumberOfCards; i++){
@@ -347,7 +347,7 @@ int CALLBACK WinMain(HINSTANCE instance,
                 break;
             }
             case GameState::STARTMENU:{
-                glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
+                glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
                 glClear(GL_COLOR_BUFFER_BIT);
                 obj2.scale = glm::vec3(20.0f, 10.0f, 1.0f);
                 for(int i = 0; i<ARR_SIZ(startUpButtons, UI::Button); i++){
