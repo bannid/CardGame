@@ -275,17 +275,6 @@ int CALLBACK WinMain(HINSTANCE instance,
     double timeAtStart = glfwGetTime();
     glfwSwapInterval(1);
     backgroundShader.SetVec3("resolution", glm::vec3(800.0f, 800.0f, 1.0f));
-    while(!glfwWindowShouldClose(window)){
-        backgroundShader.SetFloat("iTime", glfwGetTime() - timeAtStart);
-        glClearColor(1.0f, .2f, 1.0f, 1.0f);
-        glClear(GL_COLOR_BUFFER_BIT);
-        backgroundShader.Attach();
-        vaoBackground.Attach();
-        vaoBackground.Draw();
-        glfwSwapBuffers(window);
-        glfwPollEvents();
-    }
-#if 0    
     Object3D obj1;
     Object3D obj2;
     const float scale = 30.0f;
@@ -342,6 +331,11 @@ int CALLBACK WinMain(HINSTANCE instance,
         UI::Button(&quitButton, &game, UI::QuitGame, buttonsPosition)
     };
     while(!glfwWindowShouldClose(window) && game.state != EXITED){
+        glClearColor(1.0f, .2f, 1.0f, 1.0f);
+        glClear(GL_COLOR_BUFFER_BIT);
+        backgroundShader.SetFloat("iTime", glfwGetTime() - timeAtStart);
+        backgroundShader.Attach();
+        vaoBackground.Draw();
         float currentTime = glfwGetTime();
         float elapsedTime = currentTime - time;
         time = currentTime;
@@ -353,8 +347,6 @@ int CALLBACK WinMain(HINSTANCE instance,
         Input::UpdateInputState();
         switch(game.state){
             case GameState::PLAYING:{
-                glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
-                glClear(GL_COLOR_BUFFER_BIT);
                 //Main loop that draws all the cards.
                 for(int i = 0; i < totalNumberOfCards; i++){
                     Card * card = cards + i;
@@ -376,8 +368,6 @@ int CALLBACK WinMain(HINSTANCE instance,
                 break;
             }
             case GameState::STARTMENU:{
-                glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
-                glClear(GL_COLOR_BUFFER_BIT);
                 obj2.scale = glm::vec3(20.0f, 10.0f, 1.0f);
                 for(int i = 0; i<ARR_SIZ(startUpButtons, UI::Button); i++){
                     startUpButtons[i].texture->Attach();
@@ -416,14 +406,12 @@ int CALLBACK WinMain(HINSTANCE instance,
         ImGui::End();
         ImGui::Render();
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
-        
         glfwSwapBuffers(window);
         glfwPollEvents();
     }
     ImGui_ImplOpenGL3_Shutdown();
     ImGui_ImplGlfw_Shutdown();
     ImGui::DestroyContext();
-#endif
     
     glfwTerminate();
     return 0;

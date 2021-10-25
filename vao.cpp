@@ -19,5 +19,6 @@ void VertexArrayObject::Attach(){
 }
 
 void VertexArrayObject::Draw(){
+    this->Attach();
     glDrawArrays(GL_TRIANGLES, 0, this->numberOfVertices / 5);
 }
