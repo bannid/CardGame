@@ -22,6 +22,7 @@
 #include "misc.h"
 #include "game.h"
 #include "ui.h"
+#include "textureManager.h"
 
 #define ARR_SIZ(array, type) sizeof(array) / sizeof(type)
 
@@ -50,6 +51,7 @@ int             GetNumberOfMatchedCards(Card * cards, int numberOfCards);
 inline void     UpdateGame(Game * game, int totalNumberOfCards);
 inline void     UpdateAnimation(Card * card, Object3D * obj1, Object3D * obj2);
 inline void     ShuffleCardsArray(Card * cards, int numberOfCards);
+inline void     DrawCards(Card * cards, int numberOfCards, Object3D * objFront, Object3D * objBack);
 
 int CALLBACK WinMain(HINSTANCE instance,
 					 HINSTANCE prevInstance,

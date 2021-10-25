@@ -2,7 +2,7 @@
 #define GAME_H
 
 #include "input.h"
-
+#include "card.h"
 enum GameState{
     STARTUP,
     STARTMENU,

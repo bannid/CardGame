@@ -12,15 +12,14 @@ class Texture{
     bool Load();
     bool Load(const char * filePath, const char * textureName, int desiredChannels);
     void Attach();
-    private:
-    std::string textureName;
-    const char * filePath;
-    unsigned int id;
-    int height;
-    int width;
-    int desiredChannels;
-    bool loadable;
-    bool loaded;
+    std::string     textureName;
+    const char *    filePath;
+    unsigned int    id;
+    int             height;
+    int             width;
+    int             desiredChannels;
+    bool            loadable;
+    bool            loaded;
 };
 
 #endif //TEXTURE_H
