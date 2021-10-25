@@ -3,6 +3,7 @@
 Shader::Shader(const char * vertexShaderPath, const char * fragmentShaderPath){
     this->fragmentShaderPath = fragmentShaderPath;
     this->vertexShaderPath = vertexShaderPath;
+    this->compiledAndLinked = false;
 }
 
 bool Shader::CompileAndLink(){
@@ -55,37 +56,45 @@ bool Shader::CompileAndLink(){
         glGetProgramInfoLog(program, 512, NULL, infoLog);
         return false;
     }
+    this->compiledAndLinked = true;
     return true;
 }
 
 void Shader::Attach() {
+    Assert(this->compiledAndLinked);
     glUseProgram(this->program);
 }
 
-void Shader::SetInt(const char * name, int value)const{
+void Shader::SetInt(const char * name, int value){
+    this->Attach();
     glUniform1i(glGetUniformLocation(this->program, name), value);
 }
 
-void Shader::SetBool(const char * name, bool value)const{
+void Shader::SetBool(const char * name, bool value){
+    this->Attach();
     glUniform1i(glGetUniformLocation(this->program, name), value);
 }
 
-void Shader::SetFloat(const char * name, float value)const {
+void Shader::SetFloat(const char * name, float value){
+    this->Attach();
     glUniform1f(glGetUniformLocation(this->program, name), value);
 }
 
-void Shader::SetVec3(const char * name, glm::vec3 vector)const{
+void Shader::SetVec3(const char * name, glm::vec3 vector){
+    this->Attach();
     glUniform3fv(glGetUniformLocation(this->program, name),
                  1,
                  glm::value_ptr(vector));
 }
 
-void Shader::SetVec4(const char * name, glm::vec4 vector)const{
+void Shader::SetVec4(const char * name, glm::vec4 vector){
+    this->Attach();
     glUniform4fv(glGetUniformLocation(this->program, name),
                  1,
                  glm::value_ptr(vector));
 }
 
-void Shader::SetMat4(const char * name, glm::mat4 mat)const{
+void Shader::SetMat4(const char * name, glm::mat4 mat){
+    this->Attach();
     glUniformMatrix4fv(glGetUniformLocation(this->program, name), 1, GL_FALSE, glm::value_ptr(mat));
 }

@@ -212,15 +212,22 @@ int CALLBACK WinMain(HINSTANCE instance,
         glfwTerminate();
         return -1;
     }
-    // Enable blending
+      // Enable blending
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     //Enable back face culling
     glEnable(GL_CULL_FACE);
     glCullFace(GL_BACK);
     //Compile the shaders
-    Shader shader("../shaders/vertexShader.vert", "../shaders/fragmentShader.vert");
-    if (!shader.CompileAndLink()){
+    Shader backgroundShader("../shaders/backgroundShader.vert",
+                            "../shaders/backgroundShader.frag");
+    Shader shader("../shaders/vertexShader.vert",
+                  "../shaders/fragmentShader.vert");
+    if(!backgroundShader.CompileAndLink()){
+        glfwTerminate();
+        return -1;
+    }
+    if(!shader.CompileAndLink()){
         glfwTerminate();
         return -1;
     }
@@ -237,7 +244,17 @@ int CALLBACK WinMain(HINSTANCE instance,
         glfwTerminate();
         return -1;
     }
-    
+    // set up vertex data (and buffer(s)) and configure vertex attributes
+    // ------------------------------------------------------------------
+    float verticesBackGround[] = {
+        -1.0f, 1.0f, 1.0f, 0.0f, 0.0f,//top left
+        -1.0f, -1.0f, 1.0f, 0.0f, 1.0f,//bottom left
+        1.0f, 1.0f, 1.0f, 1.0f, 1.0f,// top right
+        
+        -1.0f, -1.0f, 1.0f, 0.0f, 1.0f,//bottom left
+        1.0f, -1.0f, 1.0f, 1.0f, 1.0f,//bottom right
+        1.0f, 1.0f, 1.0f, 1.0f, 0.0f//top right 
+    };
     float vertices[] = {
         -1.0f, -1.0f, 1.0f, 0.0f, 0.0f, //top left
         -1.0f, 1.0f, 1.0f, 0.0f, 1.0f, //bottom left
@@ -247,16 +264,28 @@ int CALLBACK WinMain(HINSTANCE instance,
         1.0f, 1.0f, 1.0f, 1.0f, 1.0f, //bottom right
         1.0f, -1.0f, 1.0f, 1.0f, 0.0f //top right
     };
+    
     VertexArrayObject vao(vertices, ARR_SIZ(vertices, float));
-    shader.Attach(); 
-    vao.Attach();
+    VertexArrayObject vaoBackground(verticesBackGround, ARR_SIZ(verticesBackGround, float));
     glm::mat4 projectionMat =  glm::ortho(0.0f, globalOpenglX, globalOpenglY, 0.0f, -500.0f, 500.0f); 
     glm::mat4 camMat = glm::mat4(1.0f);
     shader.SetMat4("uProjectionMat", projectionMat);
     shader.SetMat4("uCamMat", camMat);
     double time = glfwGetTime();
+    double timeAtStart = glfwGetTime();
     glfwSwapInterval(1);
-    
+    backgroundShader.SetVec3("resolution", glm::vec3(800.0f, 800.0f, 1.0f));
+    while(!glfwWindowShouldClose(window)){
+        backgroundShader.SetFloat("iTime", glfwGetTime() - timeAtStart);
+        glClearColor(1.0f, .2f, 1.0f, 1.0f);
+        glClear(GL_COLOR_BUFFER_BIT);
+        backgroundShader.Attach();
+        vaoBackground.Attach();
+        vaoBackground.Draw();
+        glfwSwapBuffers(window);
+        glfwPollEvents();
+    }
+#if 0    
     Object3D obj1;
     Object3D obj2;
     const float scale = 30.0f;
@@ -394,6 +423,8 @@ int CALLBACK WinMain(HINSTANCE instance,
     ImGui_ImplOpenGL3_Shutdown();
     ImGui_ImplGlfw_Shutdown();
     ImGui::DestroyContext();
+#endif
+    
     glfwTerminate();
     return 0;
 }
