@@ -199,6 +199,18 @@ inline void UpdateAnimation(Card * card, Object3D * obj1, Object3D * obj2){
     obj1->rotation = card->rotateY + 180.0f;
 }
 
+inline void ShuffleCardsArray(Card * cards, int numberOfCards){
+    for(int i = 0; i<numberOfCards; i++){
+        Card * card = cards + i;
+        Card tempCard = *card;
+        int randomIndex = rand() % numberOfCards;
+        Card * destinationCard = cards + randomIndex;
+        card->suit = destinationCard->suit;
+        card->rank = destinationCard->rank;
+        destinationCard->suit = tempCard.suit;
+        destinationCard->rank = tempCard.rank;
+    }
+}
 
 int CALLBACK WinMain(HINSTANCE instance,
 					 HINSTANCE prevInstance,
@@ -308,7 +320,8 @@ int CALLBACK WinMain(HINSTANCE instance,
         cardOtherHalf->suit = suit;
         cardOtherHalf->rank = rank;
     }
-    
+
+    ShuffleCardsArray(cards, totalNumberOfCards);
     Level level1;
     level1.cards = cards;
     
