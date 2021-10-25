@@ -1,22 +1,28 @@
 #include "texture.h"
 
-Texture::Texture(const char * filePath, int desiredChannels){
+Texture::Texture(const char * filePath, const char * textureName, int desiredChannels){
     this->filePath = filePath;
     this->desiredChannels = desiredChannels;
+    this->textureName = std::string(textureName);
+    this->loadable = true;
+    this->loaded = false;
 }
 
 Texture::Texture(){
-    
+    this->loadable = false;
+    this->loaded = false;
 }
 
-bool Texture::Load(const char * filePath, int desiredChannels){
+bool Texture::Load(const char * filePath, const char * textureName, int desiredChannels){
     this->filePath = filePath;
     this->desiredChannels = desiredChannels;
+    this->textureName = std::string(textureName);
+    this->loadable = true;
     return this->Load();
 }
 
 bool Texture::Load(){
-    
+    Assert(this->loadable);
     glGenTextures(1, &this->id);
     glBindTexture(GL_TEXTURE_2D, this->id);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);	
@@ -33,11 +39,13 @@ bool Texture::Load(){
         glTexImage2D(GL_TEXTURE_2D, 0, channels, this->width, this->height, 0, channels, GL_UNSIGNED_BYTE, data);
         glGenerateMipmap(GL_TEXTURE_2D);
         stbi_image_free(data);
+        this->loaded = true;
         return true;
     }
     return false;
 }
 
 void Texture::Attach(){
+    Assert(this->loaded);
     glBindTexture(GL_TEXTURE_2D, this->id);
 }
