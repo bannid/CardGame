@@ -24,16 +24,16 @@
 #include "ui.h"
 #include "textureManager.h"
 
+#define USE_IMGUI
 #define ARR_SIZ(array, type) sizeof(array) / sizeof(type)
 
 //Globals
-static float    globalAspectRatio = 1.0f;
-static bool     globalRescale = false;
-
-static int      globalWindowHeight = 800;
-static int      globalWindowWidth = 800;
-static float    globalOpenglX = 400.0f;
-static float    globalOpenglY = 400.0f;
+static float    globalAspectRatio   =   1.0f;
+static bool     globalRescale       =   false;
+static int      globalWindowHeight  =   800;
+static int      globalWindowWidth   =   800;
+static float    globalOpenglX       =   400.0f;
+static float    globalOpenglY       =   400.0f;
 
 struct OpenglCoords { float x; float y; };
 
@@ -41,15 +41,14 @@ bool            LoadTextures(Texture * textures);
 OpenglCoords    ScreenToOpenglCoords(float x, float y);
 bool            CardWasClicked(Card * card, OpenglCoords coords);
 bool            RectangleWasClicked(float leftX, float leftY, float rightX, float rightY, OpenglCoords coords);
-void            UpdateAnimationState(Card * card, float elapsedTime);
 void            FrameBufferSizeCallback(GLFWwindow * window, int width, int height);
 bool            StartOpenglAndReturnWindow(GLFWwindow ** window);
 bool            LoadGlad();
+inline void     GlOptions();
 void            ClickCard(Card * card);
 int             GetNumberOfFlippedCards(Card * cards, int numberOfCards);
 int             GetNumberOfMatchedCards(Card * cards, int numberOfCards);
 inline void     UpdateGame(Game * game, int totalNumberOfCards);
-inline void     UpdateAnimation(Card * card, Object3D * obj1, Object3D * obj2);
 inline void     ShuffleCardsArray(Card * cards, int numberOfCards);
 inline void     DrawCards(Card * cards, int numberOfCards, Object3D * objFront, Object3D * objBack);
 
@@ -65,15 +64,13 @@ int CALLBACK WinMain(HINSTANCE instance,
         glfwTerminate();
         return -1;
     }
-      // Enable blending
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    //Enable back face culling
-    glEnable(GL_CULL_FACE);
-    glCullFace(GL_BACK);
+    //Some GL options like Blending and face culling
+    GlOptions();
     //Compile the shaders
     Shader backgroundShader("../shaders/backgroundShader.vert",
                             "../shaders/backgroundShader.frag");
+    Shader circleShader("../shaders/backgroundShader.vert",
+                            "../shaders/circles.frag");
     Shader shader("../shaders/vertexShader.vert",
                   "../shaders/fragmentShader.vert");
     if(!backgroundShader.CompileAndLink()){
@@ -84,6 +81,14 @@ int CALLBACK WinMain(HINSTANCE instance,
         glfwTerminate();
         return -1;
     }
+    if(!circleShader.CompileAndLink()){
+        glfwTerminate();
+        return -1;
+    }
+    TextureManager texManager;
+    texManager.LoadTexture("../assets/card-back2.png", "CardBack", 4);
+    texManager.LoadTexture("../assets/UI/Start.png","StartButton", 4);
+    texManager.LoadTexture("../assets/UI/Quit.png", "QuitButton", 4);
     //Load the textures.
     Texture cardBack("../assets/card-back2.png", "CardBack", 4);
     Texture startButton("../assets/UI/Start.png","StartButton", 4);
@@ -92,6 +97,7 @@ int CALLBACK WinMain(HINSTANCE instance,
         glfwTerminate();
         return -1;
     }
+    
     Texture textures[52];
     if(!LoadTextures(textures)){
         glfwTerminate();
@@ -129,14 +135,15 @@ int CALLBACK WinMain(HINSTANCE instance,
     double timeAtStart = glfwGetTime();
     glfwSwapInterval(1);
     backgroundShader.SetVec3("resolution", glm::vec3(800.0f, 800.0f, 1.0f));
+    circleShader.SetVec3("resolution", glm::vec3(800.0f, 800.0f, 1.0f));
     Object3D obj1;
     Object3D obj2;
-    const float scale = 30.0f;
+    const float scale = 25.0f;
     const float offsetX = 10.0f;
     const float offsetY = 10.0f;
     //Setup the cards.
     const int numberOfColumns = 4;
-    const int numberOfRows = 5;
+    const int numberOfRows = 6;
     const int totalNumberOfCards = numberOfColumns * numberOfRows;
     Card cards[numberOfColumns * numberOfRows];
     //Initialize all the cards.
@@ -170,7 +177,7 @@ int CALLBACK WinMain(HINSTANCE instance,
     Game game;
     game.currentLevel = &level1;
     game.state = GameState::STARTMENU;
-    #if defined(DEBUG)
+    #if defined(USE_IMGUI)
     //Imgui
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
@@ -192,12 +199,13 @@ int CALLBACK WinMain(HINSTANCE instance,
         glClear(GL_COLOR_BUFFER_BIT);
         //Draw the background
         backgroundShader.SetFloat("iTime", glfwGetTime() - timeAtStart);
+        circleShader.SetFloat("iTime", glfwGetTime() - timeAtStart);
         backgroundShader.Attach();
         vaoBackground.Draw();
         float currentTime = glfwGetTime();
         float elapsedTime = currentTime - time;
         time = currentTime;
-        #if defined(DEBUG)
+        #if defined(USE_IMGUI)
         //Imgui
         ImGui_ImplOpenGL3_NewFrame();
         ImGui_ImplGlfw_NewFrame();
@@ -209,24 +217,37 @@ int CALLBACK WinMain(HINSTANCE instance,
                 //Main loop that draws all the cards.
                 for(int i = 0; i < totalNumberOfCards; i++){
                     Card * card = cards + i;
-                    UpdateAnimationState(card, elapsedTime);
+                    Anim::UpdateRotateAnimationState(&card->rotateAnimation, elapsedTime);
+                    //Set the positions and scales.
                     obj1.scale = card->scale;
                     obj2.scale = card->scale;
                     obj1.position = card->position;
                     obj2.position = card->position;
-                    obj1.rotation = card->rotateY + 180.0f;
-                    obj2.rotation = card->rotateY;
-                    if(card->rotateAnimation.isActive){
-                        UpdateAnimation(card, &obj1, &obj2);
+                    obj2.rotation = card->rotateAnimation.currentValue;
+                    obj1.rotation = card->rotateAnimation.currentValue + 180.0f;
+                    
+                    Anim::UpdateRotateAnimation(&card->rotateAnimation);
+                    //After updating the animation, set the rotation
+                    obj2.rotation = card->rotateAnimation.currentValue;
+                    obj1.rotation = card->rotateAnimation.currentValue + 180.0f;
+                    if(card->clickCounter > 0 && !card->rotateAnimation.isActive){
+                        ClickCard(card);
+                        card->clickCounter = 0;
                     }
                     textures[card->rank + card->suit * 13].Attach();
                     obj1.Draw(&shader, &vao);
-                    cardBack.Attach();
+                    Texture t;
+                    if(texManager.GetTexture("CardBack", &t)){
+                        t.Attach();
+                    }
+
                     obj2.Draw(&shader, &vao);
                 }
                 break;
             }
             case GameState::STARTMENU:{
+                circleShader.Attach();
+                vaoBackground.Draw();
                 obj2.scale = glm::vec3(20.0f, 10.0f, 1.0f);
                 for(int i = 0; i<ARR_SIZ(startUpButtons, UI::Button); i++){
                     startUpButtons[i].texture->Attach();
@@ -257,12 +278,15 @@ int CALLBACK WinMain(HINSTANCE instance,
             }
         }
         UpdateGame(&game, totalNumberOfCards);
-        #if defined(DEBUG)
+        #if defined(USE_IMGUI)
         ImGui::Begin("General info");
         ImGui::Text("LF: %0f ms", elapsedTime * 1000.0f);
         ImGui::Text("FPS: %0f", 1.0f / elapsedTime);
-        float f0;
-        ImGui::InputFloat("input float", &offsetFromTop, 0.01f, 1.0f, "%.3f");
+        ImGui::End();
+        ImGui::Begin("Textures");
+        for(int i = 0; i<texManager.numberOfTextures; i++){
+            ImGui::Text(texManager.textures[i].textureName.c_str());
+        }
         ImGui::End();
         ImGui::Render();
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
@@ -270,7 +294,7 @@ int CALLBACK WinMain(HINSTANCE instance,
         glfwSwapBuffers(window);
         glfwPollEvents();
     }
-    #if defined(DEBUG)
+    #if defined(USE_IMGUI)
     ImGui_ImplOpenGL3_Shutdown();
     ImGui_ImplGlfw_Shutdown();
     #endif
@@ -278,20 +302,6 @@ int CALLBACK WinMain(HINSTANCE instance,
     
     glfwTerminate();
     return 0;
-}
-
-void UpdateAnimationState(Card * card, float elapsedTime){
-    if(card->rotateAnimation.isActive){
-        if(card->rotateAnimation.timeAccumulator >= card->rotateAnimation.totalTime){
-            card->rotateAnimation.isActive = false;
-            card->rotateAnimation.timeAccumulator = 0.0f;
-        }
-        else{
-            card->rotateAnimation.timeAccumulator += elapsedTime;
-        }
-        card->rotateAnimation.timeAccumulator = card->rotateAnimation.timeAccumulator > card->rotateAnimation.totalTime ? card->rotateAnimation.totalTime : card->rotateAnimation.timeAccumulator;
-    }
-    
 }
 
 bool LoadTextures(Texture * textures){
@@ -378,11 +388,16 @@ bool LoadGlad(){
     return true;
 }
 
+inline void GlOptions(){
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glEnable(GL_CULL_FACE);
+    glCullFace(GL_BACK);
+}
+
 void ClickCard(Card * card){
     if(!card->rotateAnimation.isActive && !card->isMatched){
-        card->rotateAnimation.isActive = true;
-        card->rotateAnimation.startingValue = card->rotateY;
-        card->rotateAnimation.endingValue = card->rotateY + 180.0f;
+        Anim::ActivateRotateAnimation(&card->rotateAnimation);
         card->isFlipped = !card->isFlipped;
     }
     else{
@@ -446,6 +461,7 @@ inline void UpdateGame(Game * game, int totalNumberOfCards){
             int counter = 0;
             for(int i = 0; i<totalNumberOfCards; i++){
                 Card * card = cards + i;
+                //Refactor
                 if(card->isFlipped && !card->isMatched){
                     if(counter == 0){
                         firstCard = card;
@@ -484,14 +500,6 @@ inline void UpdateGame(Game * game, int totalNumberOfCards){
             }
         }
     }
-}
-
-inline void UpdateAnimation(Card * card, Object3D * obj1, Object3D * obj2){
-    float weight = card->rotateAnimation.timeAccumulator / card->rotateAnimation.totalTime;
-    AnimationRotate rot = card->rotateAnimation;
-    card->rotateY = CosineInterpolation(rot.startingValue , rot.endingValue, weight);
-    obj2->rotation = card->rotateY;
-    obj1->rotation = card->rotateY + 180.0f;
 }
 
 inline void ShuffleCardsArray(Card * cards, int numberOfCards){

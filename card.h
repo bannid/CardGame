@@ -12,8 +12,7 @@ struct Card{
     glm::vec3 scale;
     bool isFlipped;
     bool isMatched;
-    AnimationRotate rotateAnimation;
-    float rotateY = 0.0f;
+    Anim::AnimationRotate rotateAnimation;
     Card(Suit suit,
          Rank rank,
          glm::vec3 position,

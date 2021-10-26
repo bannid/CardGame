@@ -2121,7 +2121,7 @@ ImFont* ImFontAtlas::AddFontDefault(const ImFontConfig* font_cfg_template)
         font_cfg.OversampleH = font_cfg.OversampleV = 1;
         font_cfg.PixelSnapH = true;
     }
-    const float fontSize = 20.0f;
+    const float fontSize = 13.0f;
     if (font_cfg.SizePixels <= 0.0f)
         font_cfg.SizePixels = fontSize * 1.0f;
     if (font_cfg.Name[0] == '\0')

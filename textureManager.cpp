@@ -10,7 +10,7 @@ bool TextureManager::LoadTexture(const char * filePath, const char * textureName
 bool TextureManager::GetTexture(const char * textureName, Texture * out){
     for(int i = 0; i<this->numberOfTextures; i++){
         if(this->textures[i].textureName.compare(textureName) == 0){
-            out = this->textures + i;
+            *out = this->textures[i];
             return true;
         }
     }
