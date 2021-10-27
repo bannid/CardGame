@@ -13,18 +13,14 @@ namespace Input{
         this->keyWasReleased = false;
     }
     
-    void Initialize(GLFWwindow * window){
+    void Initialize(GLFWwindow * window, Key * keyboardKeys, Key * mouseKeys){
         Input::window = window;
+        Input::keyboardKeys = keyboardKeys;
+        Input::mouseKeys = mouseKeys;
     }
     
     void GetMousePositions(double* x, double * y){
         glfwGetCursorPos(Input::window, x, y);
-    }
-    
-    void UpdateInputState(){
-        UpdateInputStateInternal(Input::keyboardKeys, 4, glfwGetKey);
-        UpdateInputStateInternal(Input::mouseKeys, 1, glfwGetMouseButton);
-        
     }
     
     void UpdateInputStateInternal(Key * keys,
@@ -48,6 +44,13 @@ namespace Input{
             }
         }
     }
+
+    void UpdateInputState(){
+        //TODO: Get the number of keys somehow.
+        UpdateInputStateInternal(Input::keyboardKeys, 4, glfwGetKey);
+        UpdateInputStateInternal(Input::mouseKeys, 1, glfwGetMouseButton);
+        
+    }
     
     bool GetKeyFromArray(int keyCode, Key * keys, int numberOfKeys, Key * out){
         for(int i = 0; i<numberOfKeys; i++){
@@ -62,6 +65,8 @@ namespace Input{
     
     
     bool MouseKeyWasReleased(int keyCode){
+        //TODO: Refactor, use the keyCode passed in to 
+        //check if the key was released
         Key key;
         if(GetKeyFromArray(GLFW_MOUSE_BUTTON_LEFT,
                            Input::mouseKeys,
@@ -73,6 +78,8 @@ namespace Input{
     }
     
     bool KeyboardKeyWasReleased(int keyCode){
+        //TODO: Refactor, use the keyCode passed in to 
+        //check if the key was released
         Key key;
         if(GetKeyFromArray(GLFW_MOUSE_BUTTON_LEFT,
                            Input::keyboardKeys,
@@ -84,6 +91,7 @@ namespace Input{
     }
     
     void ResetState(){
+        //TODO: Implement.
         Input::mouseKeys[0].keyWasPressed = false;
         Input::mouseKeys[0].keyWasReleased = false;
     }

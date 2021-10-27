@@ -2,6 +2,12 @@
 #define INPUT_H
 
 #include "openglIncludes.h"
+#define INPUT_MOUSE_KEY_DOWN(name) bool name(int keyCode)
+#define INPUT_GET_MOUSE_POSITION(name) void name(double * x, double * y)
+
+typedef INPUT_MOUSE_KEY_DOWN(MouseKeyIsDownCallback);
+typedef INPUT_GET_MOUSE_POSITION(GetMousePositionCallback);
+
 namespace Input{
     typedef int(*KeyPressCheckCallback)(GLFWwindow*, int);
     struct Key{
@@ -11,24 +17,19 @@ namespace Input{
         Key();
         Key(int keyCode);
     };
-    static Key keyboardKeys[] = {
-        Input::Key(GLFW_KEY_LEFT),
-        Input::Key(GLFW_KEY_RIGHT),
-        Input::Key(GLFW_KEY_UP),
-        Input::Key(GLFW_KEY_DOWN)
+    struct InputObject {
+        Key * mouseKeys = NULL;
+        Key * keyboardKeys = NULL;
+        int numberOfMouseKeys = 0;
+        int numberOfKeyboardKeys = 0;
     };
-    
-    static Key mouseKeys[] = {
-        Input::Key(GLFW_MOUSE_BUTTON_LEFT)
-    };
+    static Key * keyboardKeys;
+    static Key * mouseKeys;
     
     static GLFWwindow * window = NULL;
-    void Initialize(GLFWwindow * window);
+    void Initialize(GLFWwindow * window, Key * keyboardKeys, Key * mouseKeys);
     //Input functions
     void UpdateInputState();
-    void UpdateInputStateInternal(Key * keys, int numberOfKeys,
-                                  KeyPressCheckCallback keyPressCheck);
-    bool GetKeyFromArray(int keyCode, Key * keys, int numberOfKeys, Key * out);
     bool MouseKeyWasReleased(int keyCode);
     bool KeyboardKeyWasReleased(int keyCode);
     void GetMousePositions(double * x, double * y);

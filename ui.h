@@ -2,7 +2,7 @@
 #define UI_H
 
 #include "glmIncludes.h"
-#include "game.h"
+#include "game/game.h"
 #include "texture.h"
 
 namespace UI{
@@ -14,6 +14,7 @@ namespace UI{
         glm::vec3 position;
         Button(Texture * texture, Game * game, ButtonPressCallback callback, glm::vec3 position);
     };
+    //TODO: These functions belong in game.h file
     void StartGame(Game * game);
     void QuitGame(Game * game);
     void PauseGame(Game * game);

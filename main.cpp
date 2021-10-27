@@ -6,9 +6,6 @@
 #include <math.h>
 #include <string>
 #include "common.h"
-#include "imgui.h"
-#include "imgui_impl_glfw.h"
-#include "imgui_impl_opengl3.h"
 #include "win32_fileapi.h"
 #include "openglIncludes.h"
 #include "glmIncludes.h"
@@ -21,7 +18,7 @@
 #include "input.h"
 #include "card.h"
 #include "misc.h"
-#include "game.h"
+#include "game/game.h"
 #include "ui.h"
 #include "textureManager.h"
 #include "shaderManager.h"
@@ -30,6 +27,12 @@
 #include "screen.h"
 
 #define CNT_ARR(array) sizeof(array) /sizeof(array[0])
+GAME_UPDATE_FUNCTION(UpdateGameStub){}
+struct GameCode {
+    HINSTANCE lib;
+    UpdateGameCallback * updateGame;
+    bool isValid = false;
+};
 
 GlobalInfo globalInfo;
 
@@ -38,8 +41,27 @@ void            FrameBufferSizeCallback(GLFWwindow * window, int width, int heig
 bool            StartOpenglAndReturnWindow(GLFWwindow ** window);
 bool            LoadGlad();
 inline void     GlOptions();
-inline void     ShuffleCardsArray(Card * cards, int numberOfCards);
-inline void     DrawCards(Card * cards, int numberOfCards, Object3D * objFront, Object3D * objBack);
+inline void     ShuffleCardsArray(nGame::Card * cards, int numberOfCards);
+inline void     DrawCards(nGame::Card * cards, int numberOfCards, Object3D * objFront, Object3D * objBack);
+
+void LoadGame(GameCode * gameCode){
+    if (gameCode->isValid) FreeLibrary(gameCode->lib);
+    while (CopyFileA("game.dll", "gameTemp.dll", FALSE) == 0) {
+        
+    }
+    gameCode->lib = LoadLibraryA("gameTemp.dll");
+    if(gameCode->lib != NULL){
+        gameCode->updateGame = (UpdateGameCallback*) GetProcAddress(gameCode->lib, "UpdateGame");
+        if(gameCode->updateGame != NULL){
+            gameCode->isValid = true;
+        }
+        else{
+            gameCode->updateGame = UpdateGameStub;
+            FreeLibrary(gameCode->lib);
+            gameCode->isValid = false;
+        }
+    }
+}
 
 int CALLBACK WinMain(HINSTANCE instance,
 					 HINSTANCE prevInstance,
@@ -135,12 +157,12 @@ int CALLBACK WinMain(HINSTANCE instance,
     const int numberOfColumns = 4;
     const int numberOfRows = 6;
     const int totalNumberOfCards = numberOfColumns * numberOfRows;
-    Card cards[numberOfColumns * numberOfRows];
+    nGame::Card cards[numberOfColumns * numberOfRows];
     //Initialize all the cards.
     for(int col = 0; col<numberOfColumns; col++){
         for(int row = 0; row<numberOfRows; row++){
             int index = row + col * numberOfRows;
-            Card * card = cards + index;
+            nGame::Card * card = cards + index;
             float scaleX = scale / globalInfo.aspectRatio;
             card->scale = glm::vec3(scaleX, scale, 1.0f);
             card->position = glm::vec3(scaleX + (col * scaleX * 2.0f) + (offsetX * col) + offsetX,
@@ -150,8 +172,8 @@ int CALLBACK WinMain(HINSTANCE instance,
     }
     //Assign two sets of random suits and ranks to the cards.
     for(int i = 0; i<totalNumberOfCards / 2; i++){
-        Card * card = cards + i;
-        Card * cardOtherHalf = cards + i + totalNumberOfCards / 2;
+        nGame::Card * card = cards + i;
+        nGame::Card * cardOtherHalf = cards + i + totalNumberOfCards / 2;
         Suit suit = (Suit)(rand() % 4);
         Rank rank = (Rank)(rand() % 13);
         card->suit = suit;
@@ -169,16 +191,30 @@ int CALLBACK WinMain(HINSTANCE instance,
     game.currentLevel = &level1;
     game.globalInfo = &globalInfo;
     game.state = GameState::STARTMENU;
+    game.mouseKeyIsDownCallback = Input::MouseKeyWasReleased;
+    game.mousePositionCallback = Input::GetMousePositions;
     IMGUI_INIT(window);
+    Input::Key keyboardKeys[] = {
+        Input::Key(GLFW_KEY_LEFT),
+        Input::Key(GLFW_KEY_RIGHT),
+        Input::Key(GLFW_KEY_UP),
+        Input::Key(GLFW_KEY_DOWN)
+    };
+    
+    Input::Key mouseKeys[] = {
+        Input::Key(GLFW_MOUSE_BUTTON_LEFT)
+    };
     //Initialize the input system.
-    Input::Initialize(window);
+    Input::Initialize(window, keyboardKeys, mouseKeys);
     float offsetFromTop = 25.0f;
     glm::vec3 buttonsPosition = glm::vec3(200.0f, 180.0f, 1.0f);
     UI::Button startUpButtons[] = {
         UI::Button(&startButton, &game, UI::StartGame, buttonsPosition),
         UI::Button(&quitButton, &game, UI::QuitGame, buttonsPosition)
     };
-    while(!glfwWindowShouldClose(window) && game.state != EXITED){
+    GameCode gameCode;
+    LoadGame(&gameCode);
+    while(!glfwWindowShouldClose(window) && game.state != GameState::EXITED){
         glClearColor(1.0f, .2f, 1.0f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
         //Draw the background
@@ -195,7 +231,7 @@ int CALLBACK WinMain(HINSTANCE instance,
             case GameState::PLAYING:{
                 //Main loop that draws all the cards.
                 for(int i = 0; i < totalNumberOfCards; i++){
-                    Card * card = cards + i;
+                    nGame::Card * card = cards + i;
                     Anim::UpdateRotateAnimationState(&card->rotateAnimation, elapsedTime);
                     //Set the positions and scales.
                     obj1.scale = card->scale;
@@ -210,7 +246,7 @@ int CALLBACK WinMain(HINSTANCE instance,
                     obj2.rotation = card->rotateAnimation.currentValue;
                     obj1.rotation = card->rotateAnimation.currentValue + 180.0f;
                     if(card->clickCounter > 0 && !card->rotateAnimation.isActive){
-                        ClickCard(card);
+                        nGame::ClickCard(card);
                         card->clickCounter = 0;
                     }
                     textures[card->rank + card->suit * 13].Attach();
@@ -256,10 +292,13 @@ int CALLBACK WinMain(HINSTANCE instance,
                 break;
             }
         }
-        UpdateGame(&game);
+        gameCode.updateGame(&game);
         IMGUI_FUNCTION(ImGui::Begin("General info"));
         IMGUI_FUNCTION(ImGui::Text("LF: %0f ms", elapsedTime * 1000.0f));
         IMGUI_FUNCTION(ImGui::Text("FPS: %0f", 1.0f / elapsedTime));
+        if(IMGUI_FUNCTION(ImGui::Button("Reload"))){
+            LoadGame(&gameCode);
+        }
         IMGUI_FUNCTION(ImGui::End());
         IMGUI_FUNCTION(ImGui::Begin("Textures"));
         for(int i = 0; i<texManager.numberOfTextures; i++){
@@ -273,6 +312,7 @@ int CALLBACK WinMain(HINSTANCE instance,
     IMGUI_EXIT();
     
     glfwTerminate();
+    FreeLibrary(gameCode.lib);
     return 0;
 }
 
@@ -340,12 +380,12 @@ inline void GlOptions(){
     glCullFace(GL_BACK);
 }
 
-inline void ShuffleCardsArray(Card * cards, int numberOfCards){
+inline void ShuffleCardsArray(nGame::Card * cards, int numberOfCards){
     for(int i = 0; i<numberOfCards; i++){
-        Card * card = cards + i;
-        Card tempCard = *card;
+        nGame::Card * card = cards + i;
+        nGame::Card tempCard = *card;
         int randomIndex = rand() % numberOfCards;
-        Card * destinationCard = cards + randomIndex;
+        nGame::Card * destinationCard = cards + randomIndex;
         card->suit = destinationCard->suit;
         card->rank = destinationCard->rank;
         destinationCard->suit = tempCard.suit;

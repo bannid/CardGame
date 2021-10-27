@@ -1,10 +1,11 @@
 #ifndef GAME_H
 #define GAME_H
 
-#include "input.h"
-#include "card.h"
-#include "screen.h"
-
+#include "..\input.h"
+#include "..\card.h"
+#include "..\screen.h"
+#define GAME_UPDATE_FUNCTION(name) void name(Game * game)
+#define DLL_API extern "C" __declspec(dllexport)
 enum GameState{
     STARTUP,
     STARTMENU,
@@ -17,7 +18,7 @@ enum GameState{
 };
 
 struct Level{
-    Card * cards;
+    nGame::Card * cards;
     int totalNumberOfCards;
     bool isWon = false;
 };
@@ -26,10 +27,11 @@ struct Game {
     GlobalInfo * globalInfo;
     Level * currentLevel;
     GameState state;
+    MouseKeyIsDownCallback * mouseKeyIsDownCallback;
+    GetMousePositionCallback * mousePositionCallback;
 };
-
-void UpdateGame(Game * game);
+typedef GAME_UPDATE_FUNCTION(UpdateGameCallback);
+DLL_API GAME_UPDATE_FUNCTION(UpdateGame);
 int GetNumberOfFlippedCards(Game * game);
 int GetNumberOfMatchedCards(Game * game);
-
 #endif //GAME_H

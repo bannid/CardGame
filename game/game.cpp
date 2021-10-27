@@ -1,27 +1,26 @@
 #include "game.h"
-
-void UpdateGame(Game * game){
+DLL_API GAME_UPDATE_FUNCTION(UpdateGame){
     int totalNumberOfCards = game->currentLevel->totalNumberOfCards;
-    Card * cards = game->currentLevel->cards;
+    nGame::Card * cards = game->currentLevel->cards;
     //Rotate all the cards that shouldn't be flipped
     for(int i = 0; i<totalNumberOfCards; i++){
-        Card * card = cards + i;
+        nGame::Card * card = cards + i;
         if(card->shouldntBeFlipped && !card->rotateAnimation.isActive){
-            ClickCard(card);
+            nGame::ClickCard(card);
             card->shouldntBeFlipped = false;
         }
     }
     if(game->state != PLAYING) return;
-    Card * cardClicked = NULL;
+    nGame::Card * cardClicked = NULL;
     //If the left mouse button was clicked
-    if(Input::MouseKeyWasReleased(GLFW_MOUSE_BUTTON_LEFT)){
+    if(game->mouseKeyIsDownCallback(GLFW_MOUSE_BUTTON_LEFT)){
         double x, y;
-        Input::GetMousePositions(&x, &y);
+        game->mousePositionCallback(&x, &y);
         OpenglCoords coordsOpengl = ScreenToOpenglCoords(x, y, game->globalInfo);
         for(int i = 0; i<totalNumberOfCards; i++){
-            Card * card = cards + i;
-            if(CardWasClicked(card, coordsOpengl)){
-                ClickCard(card);
+            nGame::Card * card = cards + i;
+            if(nGame::CardWasClicked(card, coordsOpengl)){
+               nGame::ClickCard(card);
                 cardClicked = card;
             }
         }
@@ -31,11 +30,11 @@ void UpdateGame(Game * game){
         //We check if there are more than 2 cards flipped.
         int totalFlippedCards = GetNumberOfFlippedCards(game);
         if(totalFlippedCards == 2){
-            Card * firstCard = NULL;
-            Card * secondCard = NULL;
+            nGame::Card * firstCard = NULL;
+            nGame::Card * secondCard = NULL;
             int counter = 0;
             for(int i = 0; i<totalNumberOfCards; i++){
-                Card * card = cards + i;
+                nGame::Card * card = cards + i;
                 //Refactor
                 if(card->isFlipped && !card->isMatched){
                     if(counter == 0){
@@ -50,7 +49,7 @@ void UpdateGame(Game * game){
                 }
             }
             if(firstCard->suit == secondCard->suit && 
-               firstCard->rank == secondCard->rank){
+            firstCard->rank == secondCard->rank){
                 firstCard->isMatched = true;
                 secondCard->isMatched = true;
             }
@@ -60,7 +59,7 @@ void UpdateGame(Game * game){
             //we want to flip back all the cards that were flipped
             //previously.
             for(int i = 0; i<totalNumberOfCards; i++){
-                Card * card = cards + i;
+                nGame::Card * card = cards + i;
                 if( card != cardClicked && card->isFlipped && !card->isMatched){
                     //If the previous card is still animating,
                     //set a flag to make sure the card will be flipped  back.
@@ -69,7 +68,7 @@ void UpdateGame(Game * game){
                     }
                     //Otherwise just click the card
                     else{
-                        ClickCard(card);
+                        nGame::ClickCard(card);
                     }
                 }
             }
@@ -80,7 +79,7 @@ void UpdateGame(Game * game){
 int GetNumberOfFlippedCards(Game * game){
     int number = 0;
     for(int i = 0; i<game->currentLevel->totalNumberOfCards; i++){
-        if(game->currentLevel->cards[i].isFlipped && game->currentLevel->cards[i].isMatched){
+        if(game->currentLevel->cards[i].isFlipped && !game->currentLevel->cards[i].isMatched){
             number++;
         }
     }
