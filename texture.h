@@ -22,4 +22,10 @@ class Texture{
     bool            loaded;
 };
 
+struct TextureLoadInfo {
+    std::string textureName;
+    std::string name;
+    int desiredChannels;
+};
+
 #endif //TEXTURE_H

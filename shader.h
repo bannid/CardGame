@@ -7,10 +7,13 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
+#include <string>
 
 struct Shader {
     Shader(const char * vertexShaderPath,
-           const char * fragmentShaderPath);
+           const char * fragmentShaderPath,
+           const char * name);
+    Shader();
     bool CompileAndLink();
     void Attach();
     void SetInt(const char * name, int value);
@@ -26,7 +29,13 @@ struct Shader {
     win32_file fragmentShaderSource;
     int vertexShader, fragmentShader, program;
     char infoLog[512];
-    
+    std::string name;
+};
+
+struct ShaderLoadInfo {
+    std::string name;
+    std::string vertexShaderPath;
+    std::string fragmentShaderPath;
 };
 
 #endif //SHADER_H

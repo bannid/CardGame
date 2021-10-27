@@ -1,8 +1,13 @@
 #include "shader.h"
 
-Shader::Shader(const char * vertexShaderPath, const char * fragmentShaderPath){
+Shader::Shader(const char * vertexShaderPath, const char * fragmentShaderPath, const char * name){
+    this->name = std::string(name);
     this->fragmentShaderPath = fragmentShaderPath;
     this->vertexShaderPath = vertexShaderPath;
+    this->compiledAndLinked = false;
+}
+
+Shader::Shader(){
     this->compiledAndLinked = false;
 }
 

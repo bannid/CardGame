@@ -1,5 +1,11 @@
 #include "textureManager.h"
 
+void TextureManager::LoadTextures(std::vector<TextureLoadInfo> textures){
+    for(auto i = textures.begin(); i != textures.end(); i++){
+        
+    }
+}
+
 bool TextureManager::LoadTexture(const char * filePath, const char * textureName, int desiredChannels){
     Assert(this->numberOfTextures < MAX_TEXTURES);
     bool textureLoaded = this->textures[this->numberOfTextures].Load(filePath, textureName, desiredChannels);

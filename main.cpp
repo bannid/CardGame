@@ -23,9 +23,12 @@
 #include "game.h"
 #include "ui.h"
 #include "textureManager.h"
+#include "shaderManager.h"
+#include "particle.h"
+#include "imgui_plugin.h"
 
 #define USE_IMGUI
-#define ARR_SIZ(array, type) sizeof(array) / sizeof(type)
+#define CNT_ARR(array) sizeof(array) /sizeof(array[0])
 
 //Globals
 static float    globalAspectRatio   =   1.0f;
@@ -67,24 +70,18 @@ int CALLBACK WinMain(HINSTANCE instance,
     //Some GL options like Blending and face culling
     GlOptions();
     //Compile the shaders
-    Shader backgroundShader("../shaders/backgroundShader.vert",
-                            "../shaders/backgroundShader.frag");
-    Shader circleShader("../shaders/backgroundShader.vert",
-                            "../shaders/circles.frag");
-    Shader shader("../shaders/vertexShader.vert",
-                  "../shaders/fragmentShader.vert");
-    if(!backgroundShader.CompileAndLink()){
-        glfwTerminate();
-        return -1;
-    }
-    if(!shader.CompileAndLink()){
-        glfwTerminate();
-        return -1;
-    }
-    if(!circleShader.CompileAndLink()){
-        glfwTerminate();
-        return -1;
-    }
+    Shader backgroundShader;
+    Shader circleShader;
+    Shader shader;
+    ShaderManager sm;
+    sm.LoadShaders({
+                       { "BackGroundShader", "../shaders/backgroundShader.vert", "../shaders/backgroundShader.frag" },
+                       { "CircleShader", "../shaders/backgroundShader.vert", "../shaders/circles.frag" },
+                       { "GameShader", "../shaders/vertexShader.vert", "../shaders/fragmentShader.vert"}
+                   });
+    sm.GetShader("GameShader", &shader);
+    sm.GetShader("CircleShader", &circleShader);
+    sm.GetShader("BackGroundShader", &backgroundShader);
     TextureManager texManager;
     texManager.LoadTexture("../assets/card-back2.png", "CardBack", 4);
     texManager.LoadTexture("../assets/UI/Start.png","StartButton", 4);
@@ -103,7 +100,7 @@ int CALLBACK WinMain(HINSTANCE instance,
         glfwTerminate();
         return -1;
     }
-
+    
     //Vertices for the background
     float verticesBackGround[] = {
         -1.0f, 1.0f, 1.0f, 0.0f, 0.0f,//top left
@@ -124,9 +121,9 @@ int CALLBACK WinMain(HINSTANCE instance,
         1.0f, 1.0f, 1.0f, 1.0f, 1.0f, //bottom right
         1.0f, -1.0f, 1.0f, 1.0f, 0.0f //top right
     };
-    
-    VertexArrayObject vao(vertices, ARR_SIZ(vertices, float));
-    VertexArrayObject vaoBackground(verticesBackGround, ARR_SIZ(verticesBackGround, float));
+    Effects::Particle particle;
+    VertexArrayObject vao(vertices, CNT_ARR(vertices));
+    VertexArrayObject vaoBackground(verticesBackGround, CNT_ARR(verticesBackGround));
     glm::mat4 projectionMat =  glm::ortho(0.0f, globalOpenglX, globalOpenglY, 0.0f, -500.0f, 500.0f); 
     glm::mat4 camMat = glm::mat4(1.0f);
     shader.SetMat4("uProjectionMat", projectionMat);
@@ -169,7 +166,7 @@ int CALLBACK WinMain(HINSTANCE instance,
         cardOtherHalf->suit = suit;
         cardOtherHalf->rank = rank;
     }
-
+    
     ShuffleCardsArray(cards, totalNumberOfCards);
     Level level1;
     level1.cards = cards;
@@ -177,15 +174,7 @@ int CALLBACK WinMain(HINSTANCE instance,
     Game game;
     game.currentLevel = &level1;
     game.state = GameState::STARTMENU;
-    #if defined(USE_IMGUI)
-    //Imgui
-    IMGUI_CHECKVERSION();
-    ImGui::CreateContext();
-    ImGuiIO& io = ImGui::GetIO(); (void)io;
-    ImGui::StyleColorsDark();
-    ImGui_ImplGlfw_InitForOpenGL(window, true);
-    ImGui_ImplOpenGL3_Init("#version 330");
-    #endif
+    IMGUI_INIT(window);
     //Initialize the input system.
     Input::Initialize(window);
     float offsetFromTop = 25.0f;
@@ -205,12 +194,7 @@ int CALLBACK WinMain(HINSTANCE instance,
         float currentTime = glfwGetTime();
         float elapsedTime = currentTime - time;
         time = currentTime;
-        #if defined(USE_IMGUI)
-        //Imgui
-        ImGui_ImplOpenGL3_NewFrame();
-        ImGui_ImplGlfw_NewFrame();
-        ImGui::NewFrame();
-        #endif
+        IMGUI_NEW_FRAME();
         Input::UpdateInputState();
         switch(game.state){
             case GameState::PLAYING:{
@@ -240,7 +224,7 @@ int CALLBACK WinMain(HINSTANCE instance,
                     if(texManager.GetTexture("CardBack", &t)){
                         t.Attach();
                     }
-
+                    
                     obj2.Draw(&shader, &vao);
                 }
                 break;
@@ -249,7 +233,7 @@ int CALLBACK WinMain(HINSTANCE instance,
                 circleShader.Attach();
                 vaoBackground.Draw();
                 obj2.scale = glm::vec3(20.0f, 10.0f, 1.0f);
-                for(int i = 0; i<ARR_SIZ(startUpButtons, UI::Button); i++){
+                for(int i = 0; i<CNT_ARR(startUpButtons); i++){
                     startUpButtons[i].texture->Attach();
                     obj2.position = startUpButtons[i].position + glm::vec3(0.0f, offsetFromTop * i, 1.0f);
                     obj2.Draw(&shader, &vao);
@@ -258,7 +242,7 @@ int CALLBACK WinMain(HINSTANCE instance,
                     double x, y;
                     Input::GetMousePositions(&x, &y);
                     OpenglCoords coordsOpengl = ScreenToOpenglCoords(x, y);
-                    for(int i = 0; i<ARR_SIZ(startUpButtons, UI::Button); i++){
+                    for(int i = 0; i<CNT_ARR(startUpButtons); i++){
                         UI::Button * button = startUpButtons + i;
                         float leftX = button->position.x - obj2.scale.x;
                         float leftY = button->position.y + (offsetFromTop * i) - obj2.scale.y;
@@ -278,27 +262,20 @@ int CALLBACK WinMain(HINSTANCE instance,
             }
         }
         UpdateGame(&game, totalNumberOfCards);
-        #if defined(USE_IMGUI)
-        ImGui::Begin("General info");
-        ImGui::Text("LF: %0f ms", elapsedTime * 1000.0f);
-        ImGui::Text("FPS: %0f", 1.0f / elapsedTime);
-        ImGui::End();
-        ImGui::Begin("Textures");
+        IMGUI_FUNCTION(ImGui::Begin("General info"));
+        IMGUI_FUNCTION(ImGui::Text("LF: %0f ms", elapsedTime * 1000.0f));
+        IMGUI_FUNCTION(ImGui::Text("FPS: %0f", 1.0f / elapsedTime));
+        IMGUI_FUNCTION(ImGui::End());
+        IMGUI_FUNCTION(ImGui::Begin("Textures"));
         for(int i = 0; i<texManager.numberOfTextures; i++){
-            ImGui::Text(texManager.textures[i].textureName.c_str());
+            IMGUI_FUNCTION(ImGui::Text(texManager.textures[i].textureName.c_str()));
         }
-        ImGui::End();
-        ImGui::Render();
-        ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
-        #endif
+        IMGUI_FUNCTION(ImGui::End());
+        IMGUI_RENDER();
         glfwSwapBuffers(window);
         glfwPollEvents();
     }
-    #if defined(USE_IMGUI)
-    ImGui_ImplOpenGL3_Shutdown();
-    ImGui_ImplGlfw_Shutdown();
-    #endif
-    ImGui::DestroyContext();
+    IMGUI_EXIT();
     
     glfwTerminate();
     return 0;
