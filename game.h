@@ -3,6 +3,8 @@
 
 #include "input.h"
 #include "card.h"
+#include "screen.h"
+
 enum GameState{
     STARTUP,
     STARTMENU,
@@ -16,12 +18,18 @@ enum GameState{
 
 struct Level{
     Card * cards;
+    int totalNumberOfCards;
     bool isWon = false;
 };
 
 struct Game {
+    GlobalInfo * globalInfo;
     Level * currentLevel;
     GameState state;
 };
+
+void UpdateGame(Game * game);
+int GetNumberOfFlippedCards(Game * game);
+int GetNumberOfMatchedCards(Game * game);
 
 #endif //GAME_H

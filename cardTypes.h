@@ -1,5 +1,5 @@
-#ifndef COMMON_H
-#define COMMON_H
+#ifndef CARD_TYPES_H
+#define CARD_TYPES_H
 
 enum Suit { DIAMONDS,
     CLUBS,
@@ -23,4 +23,4 @@ enum Rank {
     RANK_NONE
 };
 
-#endif //COMMON_H
+#endif 
