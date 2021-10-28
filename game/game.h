@@ -4,7 +4,12 @@
 #include "..\input.h"
 #include "..\card.h"
 #include "..\screen.h"
-#define GAME_UPDATE_FUNCTION(name) void name(Game * game)
+#include "..\model.h"
+#include "..\texture.h"
+#include "..\textureManager.h"
+#include "..\vao.h"
+
+#define GAME_UPDATE_FUNCTION(name) void name(Game * game, float elapsedTime)
 #define DLL_API extern "C" __declspec(dllexport)
 enum GameState{
     STARTUP,
@@ -25,13 +30,22 @@ struct Level{
 
 struct Game {
     GlobalInfo * globalInfo;
+    TextureAPI textureApi;
     Level * currentLevel;
     GameState state;
     MouseKeyIsDownCallback * mouseKeyIsDownCallback;
     GetMousePositionCallback * mousePositionCallback;
+    Object3D * front;
+    Object3D * back;
+    Texture * textures;
+    Shader * shader;
+    VertexArrayObject * vao;
+    TextureManager * textureManager;
+    GetTextureTextureManagerCallback * getTextureTextureManager;
+    DrawObject3DCallback * drawObject3D;
 };
+
+
 typedef GAME_UPDATE_FUNCTION(UpdateGameCallback);
 DLL_API GAME_UPDATE_FUNCTION(UpdateGame);
-int GetNumberOfFlippedCards(Game * game);
-int GetNumberOfMatchedCards(Game * game);
 #endif //GAME_H

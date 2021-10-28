@@ -5,27 +5,31 @@
 #include "debug.h"
 #include <string>
 
-class Texture{
+#define TEXTURE_ATTACH_FUNCTION(name) void name(Texture * texture)
+#define TEXTURE_LOAD_FUNCTION(name) bool name(Texture * texture, const char * filePath, const char * textureName, int desiredChannels)
+
+struct Texture{
     public:
-    Texture(const char * filePath, const char * textureName, int desiredChannels);
-    Texture();
-    bool Load();
-    bool Load(const char * filePath, const char * textureName, int desiredChannels);
-    void Attach();
     std::string     textureName;
-    const char *    filePath;
+    const char*     filePath;
     unsigned int    id;
     int             height;
     int             width;
     int             desiredChannels;
-    bool            loadable;
     bool            loaded;
 };
-
+typedef TEXTURE_ATTACH_FUNCTION(AttachTextureCallback);
+typedef TEXTURE_LOAD_FUNCTION(LoadTextureCallback);
+struct TextureAPI {
+    AttachTextureCallback * attachCallback;
+    LoadTextureCallback * loadCallback;
+};
 struct TextureLoadInfo {
     std::string textureName;
     std::string name;
     int desiredChannels;
 };
 
+TEXTURE_LOAD_FUNCTION(LoadTexture);
+TEXTURE_ATTACH_FUNCTION(AttachTexture);
 #endif //TEXTURE_H

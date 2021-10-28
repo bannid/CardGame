@@ -1,5 +1,11 @@
 #include "game.h"
+
+int GetNumberOfFlippedCards(Game * game);
+int GetNumberOfMatchedCards(Game * game);
+void RenderGame(Game * game, float timeDelta);
+
 DLL_API GAME_UPDATE_FUNCTION(UpdateGame){
+
     int totalNumberOfCards = game->currentLevel->totalNumberOfCards;
     nGame::Card * cards = game->currentLevel->cards;
     //Rotate all the cards that shouldn't be flipped
@@ -11,6 +17,7 @@ DLL_API GAME_UPDATE_FUNCTION(UpdateGame){
         }
     }
     if(game->state != PLAYING) return;
+    RenderGame(game, elapsedTime);
     nGame::Card * cardClicked = NULL;
     //If the left mouse button was clicked
     if(game->mouseKeyIsDownCallback(GLFW_MOUSE_BUTTON_LEFT)){
@@ -73,6 +80,36 @@ DLL_API GAME_UPDATE_FUNCTION(UpdateGame){
                 }
             }
         }
+    }
+}
+
+void RenderGame(Game * game, float timeDelta){
+    for(int i = 0; i < game->currentLevel->totalNumberOfCards; i++){
+        nGame::Card * card = game->currentLevel->cards + i;
+        Anim::UpdateRotateAnimationState(&card->rotateAnimation, timeDelta);
+        //Set the positions and scales.
+        game->front->scale = card->scale;
+        game->back->scale = card->scale;
+        game->front->position = card->position;
+        game->back->position = card->position;
+        game->back->rotation = card->rotateAnimation.currentValue;
+        game->front->rotation = card->rotateAnimation.currentValue + 180.0f;
+        
+        Anim::UpdateRotateAnimation(&card->rotateAnimation);
+        //After updating the animation, set the rotation
+        game->back->rotation = card->rotateAnimation.currentValue;
+        game->front->rotation = card->rotateAnimation.currentValue + 180.0f;
+        if(card->clickCounter > 0 && !card->rotateAnimation.isActive){
+            nGame::ClickCard(card);
+            card->clickCounter = 0;
+        }
+        game->textureApi.attachCallback((game->textures + card->rank + card->suit * 13));
+        game->drawObject3D(game->front, game->shader, game->vao);
+        Texture t;
+        if(game->getTextureTextureManager(game->textureManager, "CardBack", &t)){
+            game->textureApi.attachCallback(&t);
+        }
+        game->drawObject3D(game->back, game->shader, game->vao);
     }
 }
 

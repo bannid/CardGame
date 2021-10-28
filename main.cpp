@@ -20,7 +20,6 @@
 #include "misc.h"
 #include "game/game.h"
 #include "ui.h"
-#include "textureManager.h"
 #include "shaderManager.h"
 #include "particle.h"
 #include "imgui_plugin.h"
@@ -44,7 +43,7 @@ inline void     GlOptions();
 inline void     ShuffleCardsArray(nGame::Card * cards, int numberOfCards);
 inline void     DrawCards(nGame::Card * cards, int numberOfCards, Object3D * objFront, Object3D * objBack);
 
-void LoadGame(GameCode * gameCode){
+void LoadGameDLL(GameCode * gameCode){
     if (gameCode->isValid) FreeLibrary(gameCode->lib);
     while (CopyFileA("game.dll", "gameTemp.dll", FALSE) == 0) {
         
@@ -98,14 +97,17 @@ int CALLBACK WinMain(HINSTANCE instance,
     sm.GetShader("CircleShader", &circleShader);
     sm.GetShader("BackGroundShader", &backgroundShader);
     TextureManager texManager;
-    texManager.LoadTexture("../assets/card-back2.png", "CardBack", 4);
-    texManager.LoadTexture("../assets/UI/Start.png","StartButton", 4);
-    texManager.LoadTexture("../assets/UI/Quit.png", "QuitButton", 4);
+    LoadTextureTextureManager(&texManager, "../assets/card-back2.png", "CardBack", 4);
+    LoadTextureTextureManager(&texManager, "../assets/UI/Start.png","StartButton", 4);
+    LoadTextureTextureManager(&texManager, "../assets/UI/Quit.png", "QuitButton", 4);
     //Load the textures.
-    Texture cardBack("../assets/card-back2.png", "CardBack", 4);
-    Texture startButton("../assets/UI/Start.png","StartButton", 4);
-    Texture quitButton("../assets/UI/Quit.png", "QuitButton", 4);
-    if (!cardBack.Load() || !startButton.Load() || !quitButton.Load()){
+    Texture cardBack;
+    LoadTexture(&cardBack, "../assets/card-back2.png", "CardBack", 4);
+    Texture startButton;
+    LoadTexture(&startButton, "../assets/UI/Start.png","StartButton", 4);
+    Texture quitButton;
+    LoadTexture(&quitButton, "../assets/UI/Quit.png", "QuitButton", 4);
+    if (!cardBack.loaded || !startButton.loaded || !quitButton.loaded){
         glfwTerminate();
         return -1;
     }
@@ -186,13 +188,24 @@ int CALLBACK WinMain(HINSTANCE instance,
     Level level1;
     level1.cards = cards;
     level1.totalNumberOfCards = totalNumberOfCards;
-    
+    //Pass the apis to the game.
     Game game;
     game.currentLevel = &level1;
     game.globalInfo = &globalInfo;
     game.state = GameState::STARTMENU;
     game.mouseKeyIsDownCallback = Input::MouseKeyWasReleased;
     game.mousePositionCallback = Input::GetMousePositions;
+    game.front = &obj1;
+    game.back = &obj2;
+    game.textureApi.attachCallback = AttachTexture;
+    game.textureApi.loadCallback = LoadTexture;
+    game.textures = textures;
+    game.textureManager = &texManager;
+    game.vao = &vao;
+    game.shader = &shader;
+    game.drawObject3D = DrawObject3D;
+    game.getTextureTextureManager = GetTextureTextureManager;
+
     IMGUI_INIT(window);
     Input::Key keyboardKeys[] = {
         Input::Key(GLFW_KEY_LEFT),
@@ -213,7 +226,7 @@ int CALLBACK WinMain(HINSTANCE instance,
         UI::Button(&quitButton, &game, UI::QuitGame, buttonsPosition)
     };
     GameCode gameCode;
-    LoadGame(&gameCode);
+    LoadGameDLL(&gameCode);
     while(!glfwWindowShouldClose(window) && game.state != GameState::EXITED){
         glClearColor(1.0f, .2f, 1.0f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
@@ -228,46 +241,14 @@ int CALLBACK WinMain(HINSTANCE instance,
         IMGUI_NEW_FRAME();
         Input::UpdateInputState();
         switch(game.state){
-            case GameState::PLAYING:{
-                //Main loop that draws all the cards.
-                for(int i = 0; i < totalNumberOfCards; i++){
-                    nGame::Card * card = cards + i;
-                    Anim::UpdateRotateAnimationState(&card->rotateAnimation, elapsedTime);
-                    //Set the positions and scales.
-                    obj1.scale = card->scale;
-                    obj2.scale = card->scale;
-                    obj1.position = card->position;
-                    obj2.position = card->position;
-                    obj2.rotation = card->rotateAnimation.currentValue;
-                    obj1.rotation = card->rotateAnimation.currentValue + 180.0f;
-                    
-                    Anim::UpdateRotateAnimation(&card->rotateAnimation);
-                    //After updating the animation, set the rotation
-                    obj2.rotation = card->rotateAnimation.currentValue;
-                    obj1.rotation = card->rotateAnimation.currentValue + 180.0f;
-                    if(card->clickCounter > 0 && !card->rotateAnimation.isActive){
-                        nGame::ClickCard(card);
-                        card->clickCounter = 0;
-                    }
-                    textures[card->rank + card->suit * 13].Attach();
-                    obj1.Draw(&shader, &vao);
-                    Texture t;
-                    if(texManager.GetTexture("CardBack", &t)){
-                        t.Attach();
-                    }
-                    
-                    obj2.Draw(&shader, &vao);
-                }
-                break;
-            }
             case GameState::STARTMENU:{
                 circleShader.Attach();
                 vaoBackground.Draw();
                 obj2.scale = glm::vec3(20.0f, 10.0f, 1.0f);
                 for(int i = 0; i<CNT_ARR(startUpButtons); i++){
-                    startUpButtons[i].texture->Attach();
+                    AttachTexture(startUpButtons[i].texture);
                     obj2.position = startUpButtons[i].position + glm::vec3(0.0f, offsetFromTop * i, 1.0f);
-                    obj2.Draw(&shader, &vao);
+                    DrawObject3D(&obj2, &shader, &vao);
                 }
                 if(Input::MouseKeyWasReleased(GLFW_MOUSE_BUTTON_LEFT)){
                     double x, y;
@@ -292,12 +273,13 @@ int CALLBACK WinMain(HINSTANCE instance,
                 break;
             }
         }
-        gameCode.updateGame(&game);
+        gameCode.updateGame(&game, elapsedTime);
         IMGUI_FUNCTION(ImGui::Begin("General info"));
         IMGUI_FUNCTION(ImGui::Text("LF: %0f ms", elapsedTime * 1000.0f));
         IMGUI_FUNCTION(ImGui::Text("FPS: %0f", 1.0f / elapsedTime));
-        if(IMGUI_FUNCTION(ImGui::Button("Reload"))){
-            LoadGame(&gameCode);
+        //TODO: This code should not make to release build.
+        if(IMGUI_FUNCTION_BOOL(ImGui::Button("Reload"))){
+            LoadGameDLL(&gameCode);
         }
         IMGUI_FUNCTION(ImGui::End());
         IMGUI_FUNCTION(ImGui::Begin("Textures"));
@@ -333,7 +315,7 @@ bool LoadTextures(Texture * textures){
                 temp + ".png";
             int index = j + i * 13;
             Texture * currentTexture = textures + index;
-            if(!currentTexture->Load(filePath.c_str(), "PlayingCard", 4)){
+            if(!LoadTexture(currentTexture,filePath.c_str(), "PlayingCard", 4)){
                 return false;
             }
             

@@ -11,12 +11,14 @@
     #define IMGUI_RENDER() ImguiRender()
     #define IMGUI_EXIT() ImguiExit()
     #define IMGUI_FUNCTION(name) name
+    #define IMGUI_FUNCTION_BOOL(name) name
 #elif !defined(DEBUG)
     #define IMGUI_INIT(windowPtr) 
     #define IMGUI_NEW_FRAME() 
     #define IMGUI_RENDER() 
     #define IMGUI_EXIT() 
     #define IMGUI_FUNCTION(name) 
+    #define IMGUI_FUNCTION_BOOL(name) name
 #endif
 
 void ImguiInit(GLFWwindow * window);
