@@ -1,22 +1,32 @@
 #include "game.h"
 
+
+
 int GetNumberOfFlippedCards(Game * game);
 int GetNumberOfMatchedCards(Game * game);
+bool AnyOtherMatchedCardAnimating(Game * game);
 void RenderGame(Game * game, float timeDelta);
-
-DLL_API GAME_UPDATE_FUNCTION(UpdateGame){
-
+void PlaySound(PlaySoundCallback * callback, SoundType type);
+DLL_API void UpdateGame(Game * game, float elapsedTime){
+    if(game->currentLevel->isWon)return;
     int totalNumberOfCards = game->currentLevel->totalNumberOfCards;
-    nGame::Card * cards = game->currentLevel->cards;
+    nGame::Card * cards = game->currentLevel->cards; 
+    if(GetNumberOfMatchedCards(game) == totalNumberOfCards){
+        PlaySound(game->playSoundCallback, GAME_WON);
+        game->currentLevel->isWon = true;
+        return;
+    } 
     //Rotate all the cards that shouldn't be flipped
     for(int i = 0; i<totalNumberOfCards; i++){
         nGame::Card * card = cards + i;
         if(card->shouldntBeFlipped && !card->rotateAnimation.isActive){
             nGame::ClickCard(card);
+            PlaySound(game->playSoundCallback, CARD_CLICK);
             card->shouldntBeFlipped = false;
         }
     }
     if(game->state != PLAYING) return;
+    game->currentLevel->elapsedTime += elapsedTime;
     RenderGame(game, elapsedTime);
     nGame::Card * cardClicked = NULL;
     //If the left mouse button was clicked
@@ -27,15 +37,18 @@ DLL_API GAME_UPDATE_FUNCTION(UpdateGame){
         for(int i = 0; i<totalNumberOfCards; i++){
             nGame::Card * card = cards + i;
             if(nGame::CardWasClicked(card, coordsOpengl)){
-               nGame::ClickCard(card);
-                cardClicked = card;
+                if(!card->rotateAnimation.isActive && !card->isMatched){
+                    nGame::ClickCard(card);
+                    PlaySound(game->playSoundCallback, CARD_CLICK);
+                    cardClicked = card;
+                }
+                else{
+                    card->clickCounter++;
+                }
             }
         }
     }
-    //We check if the card clicked was flipped.
-    if(cardClicked != NULL && cardClicked->isFlipped){
-        //We check if there are more than 2 cards flipped.
-        int totalFlippedCards = GetNumberOfFlippedCards(game);
+    int totalFlippedCards = GetNumberOfFlippedCards(game);
         if(totalFlippedCards == 2){
             nGame::Card * firstCard = NULL;
             nGame::Card * secondCard = NULL;
@@ -61,7 +74,10 @@ DLL_API GAME_UPDATE_FUNCTION(UpdateGame){
                 secondCard->isMatched = true;
             }
         }
-        else if(totalFlippedCards > 2){
+    //We check if the card clicked was flipped.
+    if(cardClicked != NULL && cardClicked->isFlipped){
+        //We check if there are more than 2 cards flipped.
+        if(totalFlippedCards > 2){
             //If there are more than two flipped cards,
             //we want to flip back all the cards that were flipped
             //previously.
@@ -76,6 +92,7 @@ DLL_API GAME_UPDATE_FUNCTION(UpdateGame){
                     //Otherwise just click the card
                     else{
                         nGame::ClickCard(card);
+                        PlaySound(game->playSoundCallback, CARD_CLICK);
                     }
                 }
             }
@@ -86,6 +103,12 @@ DLL_API GAME_UPDATE_FUNCTION(UpdateGame){
 void RenderGame(Game * game, float timeDelta){
     for(int i = 0; i < game->currentLevel->totalNumberOfCards; i++){
         nGame::Card * card = game->currentLevel->cards + i;
+        if(card->isGone) continue;
+        if((card->isMatched && !AnyOtherMatchedCardAnimating(game))){
+            card->isGone = true;
+            PlaySound(game->playSoundCallback, CARD_MATCH);
+            continue;
+        }
         Anim::UpdateRotateAnimationState(&card->rotateAnimation, timeDelta);
         //Set the positions and scales.
         game->front->scale = card->scale;
@@ -99,8 +122,9 @@ void RenderGame(Game * game, float timeDelta){
         //After updating the animation, set the rotation
         game->back->rotation = card->rotateAnimation.currentValue;
         game->front->rotation = card->rotateAnimation.currentValue + 180.0f;
-        if(card->clickCounter > 0 && !card->rotateAnimation.isActive){
+        if(card->clickCounter > 0 && !card->rotateAnimation.isActive && !card->isMatched){
             nGame::ClickCard(card);
+            PlaySound(game->playSoundCallback, CARD_CLICK);
             card->clickCounter = 0;
         }
         game->textureApi.attachCallback((game->textures + card->rank + card->suit * 13));
@@ -131,4 +155,32 @@ int GetNumberOfMatchedCards(Game * game){
         }
     }
     return number;
+}
+
+bool AnyOtherMatchedCardAnimating(Game * game){
+    int number = 0;
+    for(int i = 0; i<game->currentLevel->totalNumberOfCards; i++){
+        nGame::Card * card = game->currentLevel->cards + i;
+        if(card->isMatched && card->rotateAnimation.isActive){
+            number++;
+        }
+    }
+    return number;
+}
+
+void PlaySound(PlaySoundCallback * callback, SoundType type){
+    switch(type){
+        case CARD_CLICK:{
+             callback(SOUND_FILE(solid.wav), false); 
+            break;
+        }
+        case CARD_MATCH:{
+            callback(SOUND_FILE(powerup.wav), false);
+            break;
+        }
+        case GAME_WON:{
+            callback(SOUND_FILE(breakout.mp3), false);
+            break;
+        }
+    }
 }

@@ -5,6 +5,7 @@
 #include <time.h>
 #include <math.h>
 #include <string>
+#include <irklang/irrKlang.h>
 #include "common.h"
 #include "win32_fileapi.h"
 #include "openglIncludes.h"
@@ -34,6 +35,7 @@ struct GameCode {
 };
 
 GlobalInfo globalInfo;
+irrklang::ISoundEngine * globalSoundEngine;
 
 bool            LoadTextures(Texture * textures);
 void            FrameBufferSizeCallback(GLFWwindow * window, int width, int height);
@@ -42,7 +44,12 @@ bool            LoadGlad();
 inline void     GlOptions();
 inline void     ShuffleCardsArray(nGame::Card * cards, int numberOfCards);
 inline void     DrawCards(nGame::Card * cards, int numberOfCards, Object3D * objFront, Object3D * objBack);
+PLAY_SOUND_FUNCTION(PlaySoundCardGame){
+    globalSoundEngine->play2D(filePath, loop);
+}
+PLAY_SOUND_FUNCTION(PlaySoundStub){
 
+}
 void LoadGameDLL(GameCode * gameCode){
     if (gameCode->isValid) FreeLibrary(gameCode->lib);
     while (CopyFileA("game.dll", "gameTemp.dll", FALSE) == 0) {
@@ -83,6 +90,10 @@ int CALLBACK WinMain(HINSTANCE instance,
     }
     //Some GL options like Blending and face culling
     GlOptions();
+    globalSoundEngine= irrklang::createIrrKlangDevice();
+    if(globalSoundEngine == NULL){
+        //do something;
+    }
     //Compile the shaders
     Shader backgroundShader;
     Shader circleShader;
@@ -109,12 +120,14 @@ int CALLBACK WinMain(HINSTANCE instance,
     LoadTexture(&quitButton, "../assets/UI/Quit.png", "QuitButton", 4);
     if (!cardBack.loaded || !startButton.loaded || !quitButton.loaded){
         glfwTerminate();
+        if(globalSoundEngine != NULL)globalSoundEngine->drop();
         return -1;
     }
     
     Texture textures[52];
     if(!LoadTextures(textures)){
         glfwTerminate();
+        if(globalSoundEngine != NULL)globalSoundEngine->drop();
         return -1;
     }
     
@@ -138,18 +151,19 @@ int CALLBACK WinMain(HINSTANCE instance,
         1.0f, 1.0f, 1.0f, 1.0f, 1.0f, //bottom right
         1.0f, -1.0f, 1.0f, 1.0f, 0.0f //top right
     };
-    Effects::Particle particle;
-    VertexArrayObject vao(vertices, CNT_ARR(vertices));
-    VertexArrayObject vaoBackground(verticesBackGround, CNT_ARR(verticesBackGround));
+    VertexArrayObject vao;
+    LoadVao(&vao, vertices, CNT_ARR(vertices));
+    VertexArrayObject vaoBackground;
+    LoadVao(&vaoBackground, verticesBackGround, CNT_ARR(verticesBackGround));
     glm::mat4 projectionMat =  glm::ortho(0.0f, globalInfo.openglWidth, globalInfo.openglHeight, 0.0f, -500.0f, 500.0f); 
     glm::mat4 camMat = glm::mat4(1.0f);
-    shader.SetMat4("uProjectionMat", projectionMat);
-    shader.SetMat4("uCamMat", camMat);
+    SetMat4Shader(&shader, "uProjectionMat", projectionMat);
+    SetMat4Shader(&shader, "uCamMat", camMat);
     double time = glfwGetTime();
     double timeAtStart = glfwGetTime();
     glfwSwapInterval(1);
-    backgroundShader.SetVec3("resolution", glm::vec3(800.0f, 800.0f, 1.0f));
-    circleShader.SetVec3("resolution", glm::vec3(800.0f, 800.0f, 1.0f));
+    SetVec3Shader(&backgroundShader, "resolution", glm::vec3(800.0f, 800.0f, 1.0f));
+    SetVec3Shader(&circleShader, "resolution", glm::vec3(800.0f, 800.0f, 1.0f));
     Object3D obj1;
     Object3D obj2;
     const float scale = 25.0f;
@@ -192,20 +206,20 @@ int CALLBACK WinMain(HINSTANCE instance,
     Game game;
     game.currentLevel = &level1;
     game.globalInfo = &globalInfo;
-    game.state = GameState::STARTMENU;
-    game.mouseKeyIsDownCallback = Input::MouseKeyWasReleased;
-    game.mousePositionCallback = Input::GetMousePositions;
     game.front = &obj1;
     game.back = &obj2;
-    game.textureApi.attachCallback = AttachTexture;
-    game.textureApi.loadCallback = LoadTexture;
     game.textures = textures;
     game.textureManager = &texManager;
     game.vao = &vao;
     game.shader = &shader;
+    game.state = GameState::STARTMENU;
+    game.mouseKeyIsDownCallback = Input::MouseKeyWasReleased;
+    game.mousePositionCallback = Input::GetMousePositions;
+    game.textureApi.attachCallback = AttachTexture;
+    game.textureApi.loadCallback = LoadTexture;
     game.drawObject3D = DrawObject3D;
     game.getTextureTextureManager = GetTextureTextureManager;
-
+    game.playSoundCallback = globalSoundEngine == NULL ? PlaySoundStub : PlaySoundCardGame;
     IMGUI_INIT(window);
     Input::Key keyboardKeys[] = {
         Input::Key(GLFW_KEY_LEFT),
@@ -231,10 +245,10 @@ int CALLBACK WinMain(HINSTANCE instance,
         glClearColor(1.0f, .2f, 1.0f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
         //Draw the background
-        backgroundShader.SetFloat("iTime", glfwGetTime() - timeAtStart);
-        circleShader.SetFloat("iTime", glfwGetTime() - timeAtStart);
-        backgroundShader.Attach();
-        vaoBackground.Draw();
+        SetFloatShader(&backgroundShader, "iTime", glfwGetTime() - timeAtStart);
+        SetFloatShader(&circleShader, "iTime", glfwGetTime() - timeAtStart);
+        AttachShader(&backgroundShader);
+        DrawVao(&vaoBackground);
         float currentTime = glfwGetTime();
         float elapsedTime = currentTime - time;
         time = currentTime;
@@ -242,8 +256,8 @@ int CALLBACK WinMain(HINSTANCE instance,
         Input::UpdateInputState();
         switch(game.state){
             case GameState::STARTMENU:{
-                circleShader.Attach();
-                vaoBackground.Draw();
+                AttachShader(&circleShader);
+                DrawVao(&vaoBackground);
                 obj2.scale = glm::vec3(20.0f, 10.0f, 1.0f);
                 for(int i = 0; i<CNT_ARR(startUpButtons); i++){
                     AttachTexture(startUpButtons[i].texture);
@@ -277,6 +291,14 @@ int CALLBACK WinMain(HINSTANCE instance,
         IMGUI_FUNCTION(ImGui::Begin("General info"));
         IMGUI_FUNCTION(ImGui::Text("LF: %0f ms", elapsedTime * 1000.0f));
         IMGUI_FUNCTION(ImGui::Text("FPS: %0f", 1.0f / elapsedTime));
+        if(game.currentLevel->elapsedTime < 60.0f){
+            IMGUI_FUNCTION(ImGui::Text("Elapsed time: %d seconds", (int)game.currentLevel->elapsedTime));
+        }
+        else{
+            float minutes = game.currentLevel->elapsedTime / 60.0f;
+            int seconds = (int)(game.currentLevel->elapsedTime)%60;
+            IMGUI_FUNCTION(ImGui::Text("Elapsed time: %d min %d seconds", (int)minutes, seconds));
+        }
         //TODO: This code should not make to release build.
         if(IMGUI_FUNCTION_BOOL(ImGui::Button("Reload"))){
             LoadGameDLL(&gameCode);
@@ -295,6 +317,7 @@ int CALLBACK WinMain(HINSTANCE instance,
     
     glfwTerminate();
     FreeLibrary(gameCode.lib);
+    if(globalSoundEngine != NULL)globalSoundEngine->drop();
     return 0;
 }
 

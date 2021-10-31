@@ -13,7 +13,7 @@ struct ShaderManager {
     void LoadShader(ShaderLoadInfo shader);
     bool GetShader(const char * name, Shader * out);
     bool GetShader(std::string name, Shader * out);
-    bool AttachShader(const char * name);
+    bool AttachShaderShaderManager(const char * name);
 };
 
 #endif

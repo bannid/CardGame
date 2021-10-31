@@ -23,13 +23,8 @@ namespace nGame{
     }
 
     void ClickCard(Card * card){
-        if(!card->rotateAnimation.isActive && !card->isMatched){
-            Anim::ActivateRotateAnimation(&card->rotateAnimation);
-            card->isFlipped = !card->isFlipped;
-        }
-        else{
-            card->clickCounter++;
-        }
+        Anim::ActivateRotateAnimation(&card->rotateAnimation);
+        card->isFlipped = !card->isFlipped;
     }
 
     bool CardWasClicked(Card * card, OpenglCoords coords){

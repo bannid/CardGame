@@ -2,8 +2,8 @@
 
 void ShaderManager::LoadShaders(std::vector<ShaderLoadInfo> shaders){
     for(auto i = shaders.begin(); i != shaders.end(); i++){
-        Shader shader(i->vertexShaderPath.c_str(), i->fragmentShaderPath.c_str(), i->name.c_str());
-        if(shader.CompileAndLink()) {
+        Shader shader;
+        if(CompileAndLinkShader(&shader, i->vertexShaderPath.c_str(), i->fragmentShaderPath.c_str(), i->name.c_str())) {
             this->shaders.push_back(shader);
         }
         else { 
@@ -13,8 +13,8 @@ void ShaderManager::LoadShaders(std::vector<ShaderLoadInfo> shaders){
 }
 
 void ShaderManager::LoadShader(ShaderLoadInfo shader){
-    Shader shaderTemp(shader.vertexShaderPath.c_str(), shader.fragmentShaderPath.c_str(), shader.name.c_str());
-    if(shaderTemp.CompileAndLink()){
+    Shader shaderTemp;
+    if(CompileAndLinkShader(&shaderTemp, shader.vertexShaderPath.c_str(), shader.fragmentShaderPath.c_str(), shader.name.c_str())){
         this->shaders.push_back(shaderTemp);
     }
     else{
@@ -36,10 +36,10 @@ bool ShaderManager::GetShader(std::string shaderName, Shader * out){
     return false;
 }
 
-bool ShaderManager::AttachShader(const char * name){
+bool ShaderManager::AttachShaderShaderManager(const char * name){
     Shader shader;
     if(this->GetShader(name, &shader)){
-        shader.Attach();
+        AttachShader(&shader);
         return true;
     }
     return false;

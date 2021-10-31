@@ -14,6 +14,7 @@ namespace nGame {
         glm::vec3 scale;
         bool isFlipped;
         bool isMatched;
+        bool isGone = false;
         Anim::AnimationRotate rotateAnimation;
         Card(Suit suit,
             Rank rank,

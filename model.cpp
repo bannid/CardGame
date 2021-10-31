@@ -19,8 +19,8 @@ glm::mat4 GetModelMatObject3D(Object3D * object){
 }
 
 void DrawObject3D(Object3D * object, Shader * shader, VertexArrayObject * vao){
-    shader->Attach();
-    vao->Attach();
-    shader->SetMat4("uModelMat", GetModelMatObject3D(object));
-    vao->Draw();
+    AttachShader(shader);
+    AttachVao(vao);
+    SetMat4Shader(shader, "uModelMat", GetModelMatObject3D(object));
+    DrawVao(vao);
 }
