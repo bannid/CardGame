@@ -1,17 +1,17 @@
 #include "game.h"
 
-
-
 int GetNumberOfFlippedCards(Game * game);
 int GetNumberOfMatchedCards(Game * game);
 bool AnyOtherMatchedCardAnimating(Game * game);
-void RenderGame(Game * game, float timeDelta);
+inline void RenderGame(Game * game, float timeDelta, float timeSinceStarting);
 void PlaySound(PlaySoundCallback * callback, SoundType type);
-DLL_API void UpdateGame(Game * game, float elapsedTime){
+
+DLL_API void UpdateGame(Game * game, float elapsedTime, float timeSinceStarting){
     if(game->currentLevel->isWon)return;
     int totalNumberOfCards = game->currentLevel->totalNumberOfCards;
+    
     nGame::Card * cards = game->currentLevel->cards; 
-    if(GetNumberOfMatchedCards(game) == totalNumberOfCards){
+    if(GetNumberOfMatchedCards(game) == totalNumberOfCards && !AnyOtherMatchedCardAnimating(game)){
         PlaySound(game->playSoundCallback, GAME_WON);
         game->currentLevel->isWon = true;
         return;
@@ -27,7 +27,7 @@ DLL_API void UpdateGame(Game * game, float elapsedTime){
     }
     if(game->state != PLAYING) return;
     game->currentLevel->elapsedTime += elapsedTime;
-    RenderGame(game, elapsedTime);
+    RenderGame(game, elapsedTime, timeSinceStarting);
     nGame::Card * cardClicked = NULL;
     //If the left mouse button was clicked
     if(game->mouseKeyIsDownCallback(GLFW_MOUSE_BUTTON_LEFT)){
@@ -49,58 +49,44 @@ DLL_API void UpdateGame(Game * game, float elapsedTime){
         }
     }
     int totalFlippedCards = GetNumberOfFlippedCards(game);
-        if(totalFlippedCards == 2){
-            nGame::Card * firstCard = NULL;
-            nGame::Card * secondCard = NULL;
-            int counter = 0;
-            for(int i = 0; i<totalNumberOfCards; i++){
-                nGame::Card * card = cards + i;
-                //Refactor
-                if(card->isFlipped && !card->isMatched){
-                    if(counter == 0){
-                        firstCard = card;
-                        counter++;
-                    }
-                    else {
-                        secondCard = card;
-                        counter++;
-                    }
-                    
+    if(cardClicked != NULL && cardClicked->isFlipped && totalFlippedCards > 2){
+        //If there are more than two flipped cards,
+        //we want to flip back all the cards that were flipped
+        //previously.
+        for(int i = 0; i<totalNumberOfCards; i++){
+            nGame::Card * card = cards + i;
+            if( card != cardClicked && card->isFlipped && !card->isMatched){
+                //If the previous card is still animating,
+                //set a flag to make sure the card will be flipped  back.
+                if(card->rotateAnimation.isActive){
+                    card->shouldntBeFlipped = true;
                 }
-            }
-            if(firstCard->suit == secondCard->suit && 
-            firstCard->rank == secondCard->rank){
-                firstCard->isMatched = true;
-                secondCard->isMatched = true;
-            }
-        }
-    //We check if the card clicked was flipped.
-    if(cardClicked != NULL && cardClicked->isFlipped){
-        //We check if there are more than 2 cards flipped.
-        if(totalFlippedCards > 2){
-            //If there are more than two flipped cards,
-            //we want to flip back all the cards that were flipped
-            //previously.
-            for(int i = 0; i<totalNumberOfCards; i++){
-                nGame::Card * card = cards + i;
-                if( card != cardClicked && card->isFlipped && !card->isMatched){
-                    //If the previous card is still animating,
-                    //set a flag to make sure the card will be flipped  back.
-                    if(card->rotateAnimation.isActive){
-                        card->shouldntBeFlipped = true;
-                    }
-                    //Otherwise just click the card
-                    else{
-                        nGame::ClickCard(card);
-                        PlaySound(game->playSoundCallback, CARD_CLICK);
-                    }
+                //Otherwise just click the card
+                else{
+                    nGame::ClickCard(card);
+                    PlaySound(game->playSoundCallback, CARD_CLICK);
                 }
             }
         }
     }
+    if(totalFlippedCards == 2){
+        nGame::Card * firstCard = NULL;
+        nGame::Card * secondCard = NULL;
+        for(int i = 0; i<totalNumberOfCards; i++){
+            nGame::Card * card = cards + i;
+            if(card->isFlipped && !card->isMatched){
+                if(firstCard == NULL) firstCard = card;
+                else secondCard = card;
+            }
+        }
+        if(firstCard->suit == secondCard->suit && firstCard->rank == secondCard->rank){
+            firstCard->isMatched = true; 
+            secondCard->isMatched = true;
+        }
+    }
 }
 
-void RenderGame(Game * game, float timeDelta){
+inline void RenderGame(Game * game, float timeDelta, float timeSinceStarting){
     for(int i = 0; i < game->currentLevel->totalNumberOfCards; i++){
         nGame::Card * card = game->currentLevel->cards + i;
         if(card->isGone) continue;
@@ -128,19 +114,21 @@ void RenderGame(Game * game, float timeDelta){
             card->clickCounter = 0;
         }
         game->textureApi.attachCallback((game->textures + card->rank + card->suit * 13));
-        game->drawObject3D(game->front, game->shader, game->vao);
+        Shader shader; 
+        game->getShaderShaderManagerCallback(game->shaderManager, "GameShader", &shader);
+        game->drawQuadCallback(game->front, &shader, game->vao);
         Texture t;
         if(game->getTextureTextureManager(game->textureManager, "CardBack", &t)){
             game->textureApi.attachCallback(&t);
         }
-        game->drawObject3D(game->back, game->shader, game->vao);
-    }
+        game->drawQuadCallback(game->back, &shader, game->vao);
+    }           
 }
 
 int GetNumberOfFlippedCards(Game * game){
     int number = 0;
     for(int i = 0; i<game->currentLevel->totalNumberOfCards; i++){
-        if(game->currentLevel->cards[i].isFlipped && !game->currentLevel->cards[i].isMatched){
+        if(!game->currentLevel->cards[i].shouldntBeFlipped && game->currentLevel->cards[i].isFlipped && !game->currentLevel->cards[i].isMatched){
             number++;
         }
     }

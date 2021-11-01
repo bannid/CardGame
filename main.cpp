@@ -26,7 +26,6 @@
 #include "imgui_plugin.h"
 #include "screen.h"
 
-#define CNT_ARR(array) sizeof(array) /sizeof(array[0])
 GAME_UPDATE_FUNCTION(UpdateGameStub){}
 struct GameCode {
     HINSTANCE lib;
@@ -42,8 +41,9 @@ void            FrameBufferSizeCallback(GLFWwindow * window, int width, int heig
 bool            StartOpenglAndReturnWindow(GLFWwindow ** window);
 bool            LoadGlad();
 inline void     GlOptions();
+inline void     InitalizeAllCards(nGame::Card * cards, int numberOfCols, int numberOfRows);
 inline void     ShuffleCardsArray(nGame::Card * cards, int numberOfCards);
-inline void     DrawCards(nGame::Card * cards, int numberOfCards, Object3D * objFront, Object3D * objBack);
+inline void     DrawCards(nGame::Card * cards, int numberOfCards, Quad * objFront, Quad * objBack);
 PLAY_SOUND_FUNCTION(PlaySoundCardGame){
     globalSoundEngine->play2D(filePath, loop);
 }
@@ -164,45 +164,19 @@ int CALLBACK WinMain(HINSTANCE instance,
     glfwSwapInterval(1);
     SetVec3Shader(&backgroundShader, "resolution", glm::vec3(800.0f, 800.0f, 1.0f));
     SetVec3Shader(&circleShader, "resolution", glm::vec3(800.0f, 800.0f, 1.0f));
-    Object3D obj1;
-    Object3D obj2;
-    const float scale = 25.0f;
-    const float offsetX = 10.0f;
-    const float offsetY = 10.0f;
+    Quad obj1;
+    Quad obj2;
     //Setup the cards.
     const int numberOfColumns = 4;
     const int numberOfRows = 6;
     const int totalNumberOfCards = numberOfColumns * numberOfRows;
     nGame::Card cards[numberOfColumns * numberOfRows];
-    //Initialize all the cards.
-    for(int col = 0; col<numberOfColumns; col++){
-        for(int row = 0; row<numberOfRows; row++){
-            int index = row + col * numberOfRows;
-            nGame::Card * card = cards + index;
-            float scaleX = scale / globalInfo.aspectRatio;
-            card->scale = glm::vec3(scaleX, scale, 1.0f);
-            card->position = glm::vec3(scaleX + (col * scaleX * 2.0f) + (offsetX * col) + offsetX,
-                                       scale + (row * scale * 2.0f) + (offsetY * row) + offsetY,
-                                       0.0f);
-        }
-    }
-    //Assign two sets of random suits and ranks to the cards.
-    for(int i = 0; i<totalNumberOfCards / 2; i++){
-        nGame::Card * card = cards + i;
-        nGame::Card * cardOtherHalf = cards + i + totalNumberOfCards / 2;
-        Suit suit = (Suit)(rand() % 4);
-        Rank rank = (Rank)(rand() % 13);
-        card->suit = suit;
-        card->rank = rank;
-        cardOtherHalf->suit = suit;
-        cardOtherHalf->rank = rank;
-    }
-    
+    InitalizeAllCards(cards, numberOfColumns, numberOfRows);
     ShuffleCardsArray(cards, totalNumberOfCards);
     Level level1;
     level1.cards = cards;
     level1.totalNumberOfCards = totalNumberOfCards;
-    //Pass the apis to the game.
+    //Pass the apis to the game dll.
     Game game;
     game.currentLevel = &level1;
     game.globalInfo = &globalInfo;
@@ -211,13 +185,16 @@ int CALLBACK WinMain(HINSTANCE instance,
     game.textures = textures;
     game.textureManager = &texManager;
     game.vao = &vao;
-    game.shader = &shader;
+    game.shaderManager = &sm;
+    game.getShaderShaderManagerCallback = GetShaderShaderManager;
+    game.attachShaderCallback = AttachShader;
     game.state = GameState::STARTMENU;
     game.mouseKeyIsDownCallback = Input::MouseKeyWasReleased;
     game.mousePositionCallback = Input::GetMousePositions;
+    game.resetInputCallback = Input::ResetState;
     game.textureApi.attachCallback = AttachTexture;
     game.textureApi.loadCallback = LoadTexture;
-    game.drawObject3D = DrawObject3D;
+    game.drawQuadCallback = DrawQuad;
     game.getTextureTextureManager = GetTextureTextureManager;
     game.playSoundCallback = globalSoundEngine == NULL ? PlaySoundStub : PlaySoundCardGame;
     IMGUI_INIT(window);
@@ -242,11 +219,13 @@ int CALLBACK WinMain(HINSTANCE instance,
     GameCode gameCode;
     LoadGameDLL(&gameCode);
     while(!glfwWindowShouldClose(window) && game.state != GameState::EXITED){
-        glClearColor(1.0f, .2f, 1.0f, 1.0f);
+        float timeSinceStarting = glfwGetTime() - timeAtStart;
+        glClearColor(.0f, .0f, .0f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
         //Draw the background
-        SetFloatShader(&backgroundShader, "iTime", glfwGetTime() - timeAtStart);
-        SetFloatShader(&circleShader, "iTime", glfwGetTime() - timeAtStart);
+        SetFloatShader(&backgroundShader, "iTime", timeSinceStarting);
+        SetFloatShader(&shader, "iTime", timeSinceStarting);
+        SetFloatShader(&circleShader, "iTime", timeSinceStarting);
         AttachShader(&backgroundShader);
         DrawVao(&vaoBackground);
         float currentTime = glfwGetTime();
@@ -262,7 +241,7 @@ int CALLBACK WinMain(HINSTANCE instance,
                 for(int i = 0; i<CNT_ARR(startUpButtons); i++){
                     AttachTexture(startUpButtons[i].texture);
                     obj2.position = startUpButtons[i].position + glm::vec3(0.0f, offsetFromTop * i, 1.0f);
-                    DrawObject3D(&obj2, &shader, &vao);
+                    DrawQuad(&obj2, &shader, &vao);
                 }
                 if(Input::MouseKeyWasReleased(GLFW_MOUSE_BUTTON_LEFT)){
                     double x, y;
@@ -287,7 +266,7 @@ int CALLBACK WinMain(HINSTANCE instance,
                 break;
             }
         }
-        gameCode.updateGame(&game, elapsedTime);
+        gameCode.updateGame(&game, elapsedTime, timeSinceStarting);
         IMGUI_FUNCTION(ImGui::Begin("General info"));
         IMGUI_FUNCTION(ImGui::Text("LF: %0f ms", elapsedTime * 1000.0f));
         IMGUI_FUNCTION(ImGui::Text("FPS: %0f", 1.0f / elapsedTime));
@@ -302,6 +281,15 @@ int CALLBACK WinMain(HINSTANCE instance,
         //TODO: This code should not make to release build.
         if(IMGUI_FUNCTION_BOOL(ImGui::Button("Reload"))){
             LoadGameDLL(&gameCode);
+        }
+        if(game.currentLevel->isWon){
+            if(IMGUI_FUNCTION_BOOL(ImGui::Button("Restart"))){ 
+                game.currentLevel->isWon = false;
+                game.currentLevel->elapsedTime = 0.0f;
+                InitalizeAllCards(game.currentLevel->cards, numberOfColumns, numberOfRows);
+                ShuffleCardsArray(game.currentLevel->cards, numberOfRows * numberOfColumns);
+                globalSoundEngine->stopAllSounds();
+            }
         }
         IMGUI_FUNCTION(ImGui::End());
         IMGUI_FUNCTION(ImGui::Begin("Textures"));
@@ -360,11 +348,10 @@ bool StartOpenglAndReturnWindow(GLFWwindow ** window){
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-    GLFWwindow * windowTemp = glfwCreateWindow(globalInfo.windowWidth, globalInfo.windowHeight, "CardsGame", NULL, NULL);
-    if ( windowTemp == NULL ) {
+    *window = glfwCreateWindow(globalInfo.windowWidth, globalInfo.windowHeight, "CardsGame", NULL, NULL);
+    if ( *window == NULL ) {
         return false;
     }
-    *window = windowTemp;
     glfwMakeContextCurrent(*window);
     glfwSetFramebufferSizeCallback(*window, FrameBufferSizeCallback);
     return true;
@@ -395,5 +382,41 @@ inline void ShuffleCardsArray(nGame::Card * cards, int numberOfCards){
         card->rank = destinationCard->rank;
         destinationCard->suit = tempCard.suit;
         destinationCard->rank = tempCard.rank;
+    }
+}
+
+inline void InitalizeAllCards(nGame::Card * cards, int numberOfCols, int numberOfRows){
+    const float scale = 25.0f;
+    const float offsetX = 10.0f;
+    const float offsetY = 10.0f;
+    const int totalNumberOfCards = numberOfCols * numberOfRows;
+    //Initialize all the cards.
+    for(int col = 0; col<numberOfCols; col++){
+        for(int row = 0; row<numberOfRows; row++){
+            int index = row + col * numberOfRows;
+            nGame::Card * card = cards + index;
+            float scaleX = scale / globalInfo.aspectRatio;
+            card->scale = glm::vec3(scaleX, scale, 1.0f);
+            card->position = glm::vec3(scaleX + (col * scaleX * 2.0f) + (offsetX * col) + offsetX,
+                                       scale + (row * scale * 2.0f) + (offsetY * row) + offsetY,
+                                       0.0f);
+            card->isFlipped = false;
+            card->isGone = false;
+            card->isMatched = false;
+            card->rotateAnimation.currentValue = 0.0f;
+            card->rotateAnimation.isActive = false;
+            card->clickCounter = 0.0f;
+        }
+    }
+    //Assign two sets of random suits and ranks to the cards.
+    for(int i = 0; i<totalNumberOfCards / 2; i++){
+        nGame::Card * card = cards + i;
+        nGame::Card * cardOtherHalf = cards + i + totalNumberOfCards / 2;
+        Suit suit = (Suit)(rand() % 4);
+        Rank rank = (Rank)(rand() % 13);
+        card->suit = suit;
+        card->rank = rank;
+        cardOtherHalf->suit = suit;
+        cardOtherHalf->rank = rank;
     }
 }

@@ -44,3 +44,13 @@ bool ShaderManager::AttachShaderShaderManager(const char * name){
     }
     return false;
 }
+
+bool GetShaderShaderManager(ShaderManager * sm, const char * shaderName, Shader * out){
+    for(auto i = sm->shaders.begin(); i != sm->shaders.end(); i++){
+        if(i->name.compare(shaderName) == 0){
+            *out = *i;
+            return true;
+        }
+    }
+    return false;
+}

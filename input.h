@@ -4,9 +4,11 @@
 #include "openglIncludes.h"
 #define INPUT_MOUSE_KEY_DOWN(name) bool name(int keyCode)
 #define INPUT_GET_MOUSE_POSITION(name) void name(double * x, double * y)
+#define INPUT_RESET(name) void name(void)
 
 typedef INPUT_MOUSE_KEY_DOWN(MouseKeyIsDownCallback);
 typedef INPUT_GET_MOUSE_POSITION(GetMousePositionCallback);
+typedef INPUT_RESET(ResetInputCallback);
 
 namespace Input{
     typedef int(*KeyPressCheckCallback)(GLFWwindow*, int);
