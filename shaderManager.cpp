@@ -54,3 +54,19 @@ bool GetShaderShaderManager(ShaderManager * sm, const char * shaderName, Shader 
     }
     return false;
 }
+
+void LoadShaderShaderManager(ShaderManager * sm, ShaderLoadInfo shaderInfo){
+    sm->LoadShader(shaderInfo);
+}
+
+void LoadShadersShaderManager(ShaderManager * sm, std::vector<ShaderLoadInfo> shaders){
+    for(auto i = shaders.begin(); i != shaders.end(); i++){
+        Shader shader;
+        if(CompileAndLinkShader(&shader, i->vertexShaderPath.c_str(), i->fragmentShaderPath.c_str(), i->name.c_str())) {
+            sm->shaders.push_back(shader);
+        }
+        else { 
+            sm->failedShaders.push_back(shader);
+        }
+    }
+}

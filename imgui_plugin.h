@@ -18,7 +18,7 @@
     #define IMGUI_RENDER() 
     #define IMGUI_EXIT() 
     #define IMGUI_FUNCTION(name) 
-    #define IMGUI_FUNCTION_BOOL(name) name
+    #define IMGUI_FUNCTION_BOOL(name) false
 #endif
 
 void ImguiInit(GLFWwindow * window);

@@ -1,11 +1,14 @@
 
 #include <iostream>
+#include <map>
 #include <windows.h>
 #include <stdlib.h>
 #include <time.h>
 #include <math.h>
 #include <string>
 #include <irklang/irrKlang.h>
+#include <ft2build.h>
+#include FT_FREETYPE_H
 #include "common.h"
 #include "win32_fileapi.h"
 #include "openglIncludes.h"
@@ -27,9 +30,11 @@
 #include "screen.h"
 
 GAME_UPDATE_FUNCTION(UpdateGameStub){}
+GAME_INIT_FUNCTION(InitGameStub){}
 struct GameCode {
     HINSTANCE lib;
     UpdateGameCallback * updateGame;
+    InitGameCallback * initGame;
     bool isValid = false;
 };
 
@@ -58,11 +63,13 @@ void LoadGameDLL(GameCode * gameCode){
     gameCode->lib = LoadLibraryA("gameTemp.dll");
     if(gameCode->lib != NULL){
         gameCode->updateGame = (UpdateGameCallback*) GetProcAddress(gameCode->lib, "UpdateGame");
-        if(gameCode->updateGame != NULL){
+        gameCode->initGame = (InitGameCallback*) GetProcAddress(gameCode->lib, "InitGame");
+        if(gameCode->updateGame != NULL && gameCode->initGame != NULL){
             gameCode->isValid = true;
         }
         else{
             gameCode->updateGame = UpdateGameStub;
+            gameCode->initGame = InitGameStub;
             FreeLibrary(gameCode->lib);
             gameCode->isValid = false;
         }
@@ -79,7 +86,6 @@ int CALLBACK WinMain(HINSTANCE instance,
     globalInfo.windowWidth = 800.0f;
     globalInfo.openglWidth = 400.0f;
     globalInfo.openglHeight = 400.0f;
-
     GLFWwindow * window;
     if(!StartOpenglAndReturnWindow(&window)){
         return -1;
@@ -94,19 +100,26 @@ int CALLBACK WinMain(HINSTANCE instance,
     if(globalSoundEngine == NULL){
         //do something;
     }
+
     //Compile the shaders
     Shader backgroundShader;
     Shader circleShader;
     Shader shader;
+    Shader cardBackShader;
+    Shader loadingCircleShader;
     ShaderManager sm;
     sm.LoadShaders({
                        { "BackGroundShader", "../shaders/backgroundShader.vert", "../shaders/backgroundShader.frag" },
                        { "CircleShader", "../shaders/backgroundShader.vert", "../shaders/circles.frag" },
-                       { "GameShader", "../shaders/vertexShader.vert", "../shaders/fragmentShader.vert"}
+                       { "GameShader", "../shaders/vertexShader.vert", "../shaders/fragmentShader.vert"},
+                       { "CardBackShader", "../shaders/vertexShader.vert", "../shaders/cardBackShader.frag"},
+                       { "LoadingCircleShader", "../shaders/vertexShader.vert", "../shaders/loadingCircleShader.frag"}
                    });
     sm.GetShader("GameShader", &shader);
     sm.GetShader("CircleShader", &circleShader);
     sm.GetShader("BackGroundShader", &backgroundShader);
+    sm.GetShader("CardBackShader", &cardBackShader);
+    sm.GetShader("LoadingCircleShader", &loadingCircleShader);
     TextureManager texManager;
     LoadTextureTextureManager(&texManager, "../assets/card-back2.png", "CardBack", 4);
     LoadTextureTextureManager(&texManager, "../assets/UI/Start.png","StartButton", 4);
@@ -159,6 +172,14 @@ int CALLBACK WinMain(HINSTANCE instance,
     glm::mat4 camMat = glm::mat4(1.0f);
     SetMat4Shader(&shader, "uProjectionMat", projectionMat);
     SetMat4Shader(&shader, "uCamMat", camMat);
+
+    SetMat4Shader(&cardBackShader, "uProjectionMat", projectionMat);
+    SetMat4Shader(&cardBackShader, "uCamMat", camMat);
+    
+    SetMat4Shader(&loadingCircleShader, "uProjectionMat", projectionMat);
+    SetMat4Shader(&loadingCircleShader, "uCamMat", camMat);
+    
+
     double time = glfwGetTime();
     double timeAtStart = glfwGetTime();
     glfwSwapInterval(1);
@@ -197,6 +218,8 @@ int CALLBACK WinMain(HINSTANCE instance,
     game.drawQuadCallback = DrawQuad;
     game.getTextureTextureManager = GetTextureTextureManager;
     game.playSoundCallback = globalSoundEngine == NULL ? PlaySoundStub : PlaySoundCardGame;
+    game.loadShaderShaderManagerCallback = LoadShaderShaderManager;
+    game.loadShadersShaderManagerCallback = LoadShadersShaderManager;
     IMGUI_INIT(window);
     Input::Key keyboardKeys[] = {
         Input::Key(GLFW_KEY_LEFT),
@@ -218,13 +241,17 @@ int CALLBACK WinMain(HINSTANCE instance,
     };
     GameCode gameCode;
     LoadGameDLL(&gameCode);
+    gameCode.initGame(&game);
     while(!glfwWindowShouldClose(window) && game.state != GameState::EXITED){
         float timeSinceStarting = glfwGetTime() - timeAtStart;
         glClearColor(.0f, .0f, .0f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
+        
         //Draw the background
         SetFloatShader(&backgroundShader, "iTime", timeSinceStarting);
         SetFloatShader(&shader, "iTime", timeSinceStarting);
+        SetFloatShader(&loadingCircleShader, "iTime", timeSinceStarting);
+        SetFloatShader(&loadingCircleShader, "timeLeftNormalized", game.currentLevel->elapsedTime / game.currentLevel->totalTime);
         SetFloatShader(&circleShader, "iTime", timeSinceStarting);
         AttachShader(&backgroundShader);
         DrawVao(&vaoBackground);
@@ -278,12 +305,11 @@ int CALLBACK WinMain(HINSTANCE instance,
             int seconds = (int)(game.currentLevel->elapsedTime)%60;
             IMGUI_FUNCTION(ImGui::Text("Elapsed time: %d min %d seconds", (int)minutes, seconds));
         }
-        //TODO: This code should not make to release build.
-        if(IMGUI_FUNCTION_BOOL(ImGui::Button("Reload"))){
+        if(DEBUG_IF(ImGui::Button("Reload"))){
             LoadGameDLL(&gameCode);
         }
-        if(game.currentLevel->isWon){
-            if(IMGUI_FUNCTION_BOOL(ImGui::Button("Restart"))){ 
+        if(DEBUG_IF(game.currentLevel->isWon)){
+            if(DEBUG_IF(ImGui::Button("Restart"))){ 
                 game.currentLevel->isWon = false;
                 game.currentLevel->elapsedTime = 0.0f;
                 InitalizeAllCards(game.currentLevel->cards, numberOfColumns, numberOfRows);
@@ -291,11 +317,19 @@ int CALLBACK WinMain(HINSTANCE instance,
                 globalSoundEngine->stopAllSounds();
             }
         }
+        //ImGui::ShowDemoWindow();
         IMGUI_FUNCTION(ImGui::End());
         IMGUI_FUNCTION(ImGui::Begin("Textures"));
         for(int i = 0; i<texManager.numberOfTextures; i++){
             IMGUI_FUNCTION(ImGui::Text(texManager.textures[i].textureName.c_str()));
         }
+        IMGUI_FUNCTION(ImGui::End());
+        IMGUI_FUNCTION(ImGui::Begin("Shaders"));
+        for(int i = 0; i<sm.shaders.size(); i++){
+            IMGUI_FUNCTION(ImGui::Text(sm.shaders[i].name.c_str()));
+        }
+        char shaderPath[128] = "Hello there";
+        IMGUI_FUNCTION(ImGui::InputText("Shader path", shaderPath, CNT_ARR(shaderPath)));
         IMGUI_FUNCTION(ImGui::End());
         IMGUI_RENDER();
         glfwSwapBuffers(window);

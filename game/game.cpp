@@ -86,6 +86,12 @@ DLL_API void UpdateGame(Game * game, float elapsedTime, float timeSinceStarting)
     }
 }
 
+DLL_API void InitGame(Game * game){
+    game->loadShadersShaderManagerCallback(game->shaderManager, {
+                       { "BackGroundShader2", "../shaders/backgroundShader.vert", "../shaders/backgroundShader.frag" }
+                   });
+}
+
 inline void RenderGame(Game * game, float timeDelta, float timeSinceStarting){
     for(int i = 0; i < game->currentLevel->totalNumberOfCards; i++){
         nGame::Card * card = game->currentLevel->cards + i;

@@ -7,7 +7,8 @@
 #include "shader.h"
 
 #define GET_SHADER_SHADER_MANAGER(name) bool name(ShaderManager * sm, const char * shaderName, Shader * out)
-
+#define LOAD_SHADER_SHADER_MANAGER(name) void name(ShaderManager * sm, ShaderLoadInfo shaderInfo)
+#define LOAD_SHADERS_SHADER_MANAGER(name) void name(ShaderManager * sm, std::vector<ShaderLoadInfo> shaders)
 struct ShaderManager {
     std::vector<Shader> shaders;
     std::vector<Shader> failedShaders;
@@ -18,6 +19,10 @@ struct ShaderManager {
     bool AttachShaderShaderManager(const char * name);
 };
 typedef GET_SHADER_SHADER_MANAGER(GetShaderShaderManagerCallback);
+typedef LOAD_SHADER_SHADER_MANAGER(LoadShaderShaderManagerCallback);
+typedef LOAD_SHADERS_SHADER_MANAGER(LoadShadersShaderManagerCallback);
 GET_SHADER_SHADER_MANAGER(GetShaderShaderManager);
+LOAD_SHADER_SHADER_MANAGER(LoadShaderShaderManager);
+LOAD_SHADERS_SHADER_MANAGER(LoadShadersShaderManager);
 
 #endif
