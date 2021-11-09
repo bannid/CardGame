@@ -44,7 +44,6 @@ bool read_entire_file(const char* FileName, win32_file * File){
 	}
 	Assert(TotalNumberOfBytesRead == File->FileSize);
 	File->Data = Buffer;
-	OutputDebugStringA(Buffer);
 	return true;
 }
 

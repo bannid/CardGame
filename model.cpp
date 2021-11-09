@@ -10,11 +10,10 @@ glm::mat4 GetModelMatObject3D(Quad * object){
     glm::mat4 modelMat = glm::mat4(1.0f);
     modelMat = glm::translate(modelMat, object->position);
     glm::mat4 identity = glm::mat4(1.0f);
-    glm::mat4 rot = glm::rotate(identity,
+    glm::mat4 rot = glm::rotate(modelMat,
                                 glm::radians(object->rotation),
                                 glm::vec3(0.0f, 1.0f, 0.0f));
-    modelMat = modelMat * rot;
-    modelMat = glm::scale(modelMat, glm::vec3(object->scale));
+    modelMat = glm::scale(rot, glm::vec3(object->scale));
     return modelMat;
 }
 

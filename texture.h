@@ -6,7 +6,7 @@
 #include <string>
 
 #define TEXTURE_ATTACH_FUNCTION(name) void name(Texture * texture)
-#define TEXTURE_LOAD_FUNCTION(name) bool name(Texture * texture, const char * filePath, const char * textureName, int desiredChannels)
+#define TEXTURE_LOAD_FUNCTION(name) bool name(Texture * texture, const char * filePath, const char * textureName, int desiredChannels, bool flip)
 
 struct Texture{
     public:

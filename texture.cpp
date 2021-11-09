@@ -5,7 +5,8 @@ void AttachTexture(Texture * texture){
     glBindTexture(GL_TEXTURE_2D, texture->id);
 }
 
-bool LoadTexture(Texture * texture, const char * filePath, const char * textureName, int desiredChannels){
+bool LoadTexture(Texture * texture, const char * filePath, const char * textureName, int desiredChannels, bool flip = true){
+    stbi_set_flip_vertically_on_load(flip);
     texture->textureName = textureName;
     texture->desiredChannels = desiredChannels;
     glGenTextures(1, &texture->id);

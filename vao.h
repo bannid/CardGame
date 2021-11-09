@@ -2,7 +2,7 @@
 #define VAO_H
 #include "openglIncludes.h"
 
-#define LOAD_VAO(name) void name(VertexArrayObject * vao, float * vertices, int numberOfVertices)
+#define LOAD_VAO(name) void name(VertexArrayObject * vao, float * vertices, int numberOfVertices, bool isDynamic)
 #define ATTACH_VAO(name) void name(VertexArrayObject * vao)
 #define DRAW_VAO(name) void name(VertexArrayObject * vao)
 struct VertexArrayObject{

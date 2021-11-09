@@ -11,6 +11,7 @@
 #include "..\textureManager.h"
 #include "..\vao.h"
 #include "..\shaderManager.h"
+#include "..\text.h"
 
 #define SOUND_FILE(fileName) "../assets/" #fileName
 

@@ -8,7 +8,7 @@ void LoadTexturesTextureManager(TextureManager * textureManager, std::vector<Tex
 
 bool LoadTextureTextureManager(TextureManager * textureManager, const char * filePath, const char * textureName, int desiredChannels){
     Assert(textureManager->numberOfTextures < MAX_TEXTURES);
-    bool textureLoaded = LoadTexture(textureManager->textures + textureManager->numberOfTextures, filePath, textureName, desiredChannels);
+    bool textureLoaded = LoadTexture(textureManager->textures + textureManager->numberOfTextures, filePath, textureName, desiredChannels, true);
     if(textureLoaded) textureManager->numberOfTextures++;
     return textureLoaded;
 }

@@ -7,8 +7,6 @@
 #include <math.h>
 #include <string>
 #include <irklang/irrKlang.h>
-#include <ft2build.h>
-#include FT_FREETYPE_H
 #include "common.h"
 #include "win32_fileapi.h"
 #include "openglIncludes.h"
@@ -28,6 +26,7 @@
 #include "particle.h"
 #include "imgui_plugin.h"
 #include "screen.h"
+#include "text.h"
 
 GAME_UPDATE_FUNCTION(UpdateGameStub){}
 GAME_INIT_FUNCTION(InitGameStub){}
@@ -49,6 +48,8 @@ inline void     GlOptions();
 inline void     InitalizeAllCards(nGame::Card * cards, int numberOfCols, int numberOfRows);
 inline void     ShuffleCardsArray(nGame::Card * cards, int numberOfCards);
 inline void     DrawCards(nGame::Card * cards, int numberOfCards, Quad * objFront, Quad * objBack);
+inline void     RenderText(std::string string, CharacterSet * characterSet, int size, VertexArrayObject * vao, Shader * shader, Quad * quad);
+
 PLAY_SOUND_FUNCTION(PlaySoundCardGame){
     globalSoundEngine->play2D(filePath, loop);
 }
@@ -107,30 +108,38 @@ int CALLBACK WinMain(HINSTANCE instance,
     Shader shader;
     Shader cardBackShader;
     Shader loadingCircleShader;
+    Shader textShader;
     ShaderManager sm;
     sm.LoadShaders({
                        { "BackGroundShader", "../shaders/backgroundShader.vert", "../shaders/backgroundShader.frag" },
                        { "CircleShader", "../shaders/backgroundShader.vert", "../shaders/circles.frag" },
                        { "GameShader", "../shaders/vertexShader.vert", "../shaders/fragmentShader.vert"},
                        { "CardBackShader", "../shaders/vertexShader.vert", "../shaders/cardBackShader.frag"},
-                       { "LoadingCircleShader", "../shaders/vertexShader.vert", "../shaders/loadingCircleShader.frag"}
+                       { "LoadingCircleShader", "../shaders/vertexShader.vert", "../shaders/loadingCircleShader.frag"},
+                       { "TextShader", "../shaders/vertexShader.vert", "../shaders/textShader.frag"},
                    });
     sm.GetShader("GameShader", &shader);
     sm.GetShader("CircleShader", &circleShader);
     sm.GetShader("BackGroundShader", &backgroundShader);
     sm.GetShader("CardBackShader", &cardBackShader);
     sm.GetShader("LoadingCircleShader", &loadingCircleShader);
+    sm.GetShader("TextShader", &textShader);
     TextureManager texManager;
     LoadTextureTextureManager(&texManager, "../assets/card-back2.png", "CardBack", 4);
     LoadTextureTextureManager(&texManager, "../assets/UI/Start.png","StartButton", 4);
     LoadTextureTextureManager(&texManager, "../assets/UI/Quit.png", "QuitButton", 4);
     //Load the textures.
     Texture cardBack;
-    LoadTexture(&cardBack, "../assets/card-back2.png", "CardBack", 4);
+    LoadTexture(&cardBack, "../assets/card-back2.png", "CardBack", 4, true);
     Texture startButton;
-    LoadTexture(&startButton, "../assets/UI/Start.png","StartButton", 4);
+    LoadTexture(&startButton, "../assets/UI/Start.png","StartButton", 4, true);
     Texture quitButton;
-    LoadTexture(&quitButton, "../assets/UI/Quit.png", "QuitButton", 4);
+    LoadTexture(&quitButton, "../assets/UI/Quit.png", "QuitButton", 4, true);
+    Texture arialFontTexture;
+    LoadTexture(&arialFontTexture, "../assets/harrington.png", "ArialFontAtlas", 4, false);
+    CharacterSet arials;
+    arials.fontAtlasTexture = &arialFontTexture;
+    LoadFonts("../assets/harrington.fnt", &arials);
     if (!cardBack.loaded || !startButton.loaded || !quitButton.loaded){
         glfwTerminate();
         if(globalSoundEngine != NULL)globalSoundEngine->drop();
@@ -144,31 +153,32 @@ int CALLBACK WinMain(HINSTANCE instance,
         return -1;
     }
     
-    //Vertices for the background
-    float verticesBackGround[] = {
-        -1.0f, 1.0f, 1.0f, 0.0f, 0.0f,//top left
-        -1.0f, -1.0f, 1.0f, 0.0f, 1.0f,//bottom left
-        1.0f, 1.0f, 1.0f, 1.0f, 1.0f,// top right
-        
-        -1.0f, -1.0f, 1.0f, 0.0f, 1.0f,//bottom left
-        1.0f, -1.0f, 1.0f, 1.0f, 1.0f,//bottom right
-        1.0f, 1.0f, 1.0f, 1.0f, 0.0f//top right 
-    };
     //Vertices for the cards and UI
     float vertices[] = {
-        -1.0f, -1.0f, 1.0f, 0.0f, 0.0f, //top left
-        -1.0f, 1.0f, 1.0f, 0.0f, 1.0f, //bottom left
-        1.0f, 1.0f, 1.0f, 1.0f, 1.0f, //bottom right
+        -1.0f, 1.0f, 0.0f, 0.0f, 1.0f,//top left
+        -1.0f, -1.0f, 0.0f, 0.0f, 0.0f,//bottom left
+        1.0f, 1.0f, 0.0f, 1.0f, 1.0f,// top right
         
-        -1.0f, -1.0f, 1.0f, 0.0f, 0.0f, //top left
-        1.0f, 1.0f, 1.0f, 1.0f, 1.0f, //bottom right
-        1.0f, -1.0f, 1.0f, 1.0f, 0.0f //top right
+        -1.0f, -1.0f, 0.0f, 0.0f, 0.0f,//bottom left
+        1.0f, -1.0f, 0.0f, 1.0f, 0.0f,//bottom right
+        1.0f, 1.0f, 0.0f, 1.0f, 1.0f//top right 
+    };
+    char c = 'A';
+    int id = (int) c;
+    float verticesText[] = {
+        0.0f, 1.0f, 1.0f, arials.characters[id].x, arials.characters[id].y, //top left
+        0.0f, 0.0f, 1.0f, arials.characters[id].x, arials.characters[id].y + arials.characters[id].height, //bottom left
+        1.0f, 0.0f, 1.0f, arials.characters[id].x + arials.characters[id].width, arials.characters[id].y + arials.characters[id].height, //bottom right
+        
+        0.0f, 1.0f, 1.0f, arials.characters[id].x, arials.characters[id].y, //top left
+        1.0f, 0.0f, 1.0f, arials.characters[id].x + arials.characters[id].width, arials.characters[id].y + arials.characters[id].height, //bottom right
+        1.0f, 1.0f, 1.0f, arials.characters[id].x + arials.characters[id].width, arials.characters[id].y // top right
     };
     VertexArrayObject vao;
-    LoadVao(&vao, vertices, CNT_ARR(vertices));
-    VertexArrayObject vaoBackground;
-    LoadVao(&vaoBackground, verticesBackGround, CNT_ARR(verticesBackGround));
-    glm::mat4 projectionMat =  glm::ortho(0.0f, globalInfo.openglWidth, globalInfo.openglHeight, 0.0f, -500.0f, 500.0f); 
+    LoadVao(&vao, vertices, CNT_ARR(vertices), false);
+    VertexArrayObject vaoText;
+    LoadVao(&vaoText, NULL, CNT_ARR(verticesText), true);
+    glm::mat4 projectionMat =  glm::ortho(0.0f, globalInfo.openglWidth, 0.0f, globalInfo.openglHeight, -500.0f, 500.0f);
     glm::mat4 camMat = glm::mat4(1.0f);
     SetMat4Shader(&shader, "uProjectionMat", projectionMat);
     SetMat4Shader(&shader, "uCamMat", camMat);
@@ -179,6 +189,9 @@ int CALLBACK WinMain(HINSTANCE instance,
     SetMat4Shader(&loadingCircleShader, "uProjectionMat", projectionMat);
     SetMat4Shader(&loadingCircleShader, "uCamMat", camMat);
     
+    SetMat4Shader(&textShader, "uProjectionMat", projectionMat);
+    SetMat4Shader(&textShader, "uCamMat", camMat);
+    
 
     double time = glfwGetTime();
     double timeAtStart = glfwGetTime();
@@ -187,6 +200,8 @@ int CALLBACK WinMain(HINSTANCE instance,
     SetVec3Shader(&circleShader, "resolution", glm::vec3(800.0f, 800.0f, 1.0f));
     Quad obj1;
     Quad obj2;
+    Quad buttons;
+    Quad text;
     //Setup the cards.
     const int numberOfColumns = 4;
     const int numberOfRows = 6;
@@ -236,8 +251,8 @@ int CALLBACK WinMain(HINSTANCE instance,
     float offsetFromTop = 25.0f;
     glm::vec3 buttonsPosition = glm::vec3(200.0f, 180.0f, 1.0f);
     UI::Button startUpButtons[] = {
-        UI::Button(&startButton, &game, UI::StartGame, buttonsPosition),
-        UI::Button(&quitButton, &game, UI::QuitGame, buttonsPosition)
+        UI::Button(&quitButton, &game, UI::QuitGame, buttonsPosition),
+        UI::Button(&startButton, &game, UI::StartGame, buttonsPosition)
     };
     GameCode gameCode;
     LoadGameDLL(&gameCode);
@@ -254,7 +269,7 @@ int CALLBACK WinMain(HINSTANCE instance,
         SetFloatShader(&loadingCircleShader, "timeLeftNormalized", game.currentLevel->elapsedTime / game.currentLevel->totalTime);
         SetFloatShader(&circleShader, "iTime", timeSinceStarting);
         AttachShader(&backgroundShader);
-        DrawVao(&vaoBackground);
+        DrawVao(&vao);
         float currentTime = glfwGetTime();
         float elapsedTime = currentTime - time;
         time = currentTime;
@@ -263,23 +278,25 @@ int CALLBACK WinMain(HINSTANCE instance,
         switch(game.state){
             case GameState::STARTMENU:{
                 AttachShader(&circleShader);
-                DrawVao(&vaoBackground);
-                obj2.scale = glm::vec3(20.0f, 10.0f, 1.0f);
+                DrawVao(&vao);
+                RenderText(std::string("This string text!"), &arials, 20, &vaoText, &textShader, &text);
+                buttons.scale = glm::vec3(20.0f, 10.0f, 1.0f);
                 for(int i = 0; i<CNT_ARR(startUpButtons); i++){
                     AttachTexture(startUpButtons[i].texture);
-                    obj2.position = startUpButtons[i].position + glm::vec3(0.0f, offsetFromTop * i, 1.0f);
-                    DrawQuad(&obj2, &shader, &vao);
+                    buttons.position = startUpButtons[i].position + glm::vec3(0.0f, offsetFromTop * i, 1.0f);
+                    DrawQuad(&buttons, &shader, &vao);
                 }
                 if(Input::MouseKeyWasReleased(GLFW_MOUSE_BUTTON_LEFT)){
                     double x, y;
                     Input::GetMousePositions(&x, &y);
                     OpenglCoords coordsOpengl = ScreenToOpenglCoords(x, y, &globalInfo);
+                    std::cout<<x<<","<<y<<std::endl;
                     for(int i = 0; i<CNT_ARR(startUpButtons); i++){
                         UI::Button * button = startUpButtons + i;
-                        float leftX = button->position.x - obj2.scale.x;
-                        float leftY = button->position.y + (offsetFromTop * i) - obj2.scale.y;
-                        float rightX = button->position.x + obj2.scale.x;
-                        float rightY = button->position.y + (offsetFromTop * i) + obj2.scale.y;
+                        float leftX = button->position.x - buttons.scale.x;
+                        float leftY = button->position.y + (offsetFromTop * i) - buttons.scale.y;
+                        float rightX = button->position.x + buttons.scale.x;
+                        float rightY = button->position.y + (offsetFromTop * i) + buttons.scale.y;
                         if(RectangleWasClicked(leftX, leftY, rightX, rightY, coordsOpengl)){
                             button->callback(&game);
                             Input::ResetState();
@@ -360,7 +377,7 @@ bool LoadTextures(Texture * textures){
                 temp + ".png";
             int index = j + i * 13;
             Texture * currentTexture = textures + index;
-            if(!LoadTexture(currentTexture,filePath.c_str(), "PlayingCard", 4)){
+            if(!LoadTexture(currentTexture,filePath.c_str(), "PlayingCard", 4, true)){
                 return false;
             }
             
@@ -423,6 +440,7 @@ inline void InitalizeAllCards(nGame::Card * cards, int numberOfCols, int numberO
     const float scale = 25.0f;
     const float offsetX = 10.0f;
     const float offsetY = 10.0f;
+    const float firstOffsetY = 20.0f;
     const int totalNumberOfCards = numberOfCols * numberOfRows;
     //Initialize all the cards.
     for(int col = 0; col<numberOfCols; col++){
@@ -432,7 +450,7 @@ inline void InitalizeAllCards(nGame::Card * cards, int numberOfCols, int numberO
             float scaleX = scale / globalInfo.aspectRatio;
             card->scale = glm::vec3(scaleX, scale, 1.0f);
             card->position = glm::vec3(scaleX + (col * scaleX * 2.0f) + (offsetX * col) + offsetX,
-                                       scale + (row * scale * 2.0f) + (offsetY * row) + offsetY,
+                                       scale + (row * scale * 2.0f) + (offsetY * row) + firstOffsetY,
                                        0.0f);
             card->isFlipped = false;
             card->isGone = false;
@@ -452,5 +470,39 @@ inline void InitalizeAllCards(nGame::Card * cards, int numberOfCols, int numberO
         card->rank = rank;
         cardOtherHalf->suit = suit;
         cardOtherHalf->rank = rank;
+    }
+}
+
+inline void RenderText(std::string string, CharacterSet * characterSet, int size, VertexArrayObject * vao, Shader * shader, Quad * quad){
+    float offsetX = 0.0f;
+    for(int i = 0; i<string.length(); i++){
+        int id = (int) string[i];
+        Character ch = characterSet->characters[id];
+        quad->scale = glm::vec3(ch.width, ch.height, 1.0f);
+        float minX = ch.x / characterSet->fontAtlasWidth;
+        float minY = ch.y / characterSet->fontAtlasHeight;
+        float width = ch.width / characterSet->fontAtlasWidth;
+        float height = ch.height / characterSet->fontAtlasHeight;
+        float maxX = minX + width;
+        float maxY = minY + height;
+        float verticesText[] = {
+            0.0f, 1.0f, 1.0f, minX, minY, //top left
+            0.0f, 0.0f, 1.0f, minX, maxY, //bottom left
+            1.0f, 0.0f, 1.0f, maxX, maxY, //bottom right
+            
+            0.0f, 1.0f, 1.0f, minX, minY, //top left
+            1.0f, 0.0f, 1.0f, maxX, maxY, //bottom right
+            1.0f, 1.0f, 1.0f, maxX, minY // top right
+        };
+        float scale = .3f;
+        float yOffset = ch.height + ch.yOffset;
+        quad->position = glm::vec3(0.0f + offsetX + ch.xOffset * scale, 200.0f - yOffset * scale, 1.0f);
+        quad->scale *= scale;
+        offsetX += ch.xAdvance * scale;
+        AttachTexture(characterSet->fontAtlasTexture);
+        glBindVertexArray(vao->VAO);
+        glBindBuffer(GL_ARRAY_BUFFER, vao->VBO);
+        glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(verticesText), verticesText);
+        DrawQuad(quad, shader, vao);
     }
 }

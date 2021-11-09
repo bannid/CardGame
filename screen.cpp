@@ -3,7 +3,7 @@
 OpenglCoords ScreenToOpenglCoords(float x, float y, GlobalInfo * globalInfo){
     OpenglCoords local;
     local.x = (x / globalInfo->windowWidth) * globalInfo->openglWidth;
-    local.y = (y / globalInfo->windowHeight) * globalInfo->openglHeight;
+    local.y = ((globalInfo->windowHeight - y) / globalInfo->windowHeight) * globalInfo->openglHeight;
     return local;
 } 
 
