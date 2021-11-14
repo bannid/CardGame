@@ -7,7 +7,6 @@ inline void RenderGame(Game * game, float timeDelta, float timeSinceStarting);
 void PlaySound(PlaySoundCallback * callback, SoundType type);
 
 DLL_API void UpdateGame(Game * game, float elapsedTime, float timeSinceStarting){
-    game->renderTextCallback("Time left: ", game->characterSet, 30, TextAlign::ALIGN_RIGHT, glm::vec2(400, 200));
     if(game->currentLevel->isWon)return;
     int totalNumberOfCards = game->currentLevel->totalNumberOfCards;
     
@@ -26,63 +25,84 @@ DLL_API void UpdateGame(Game * game, float elapsedTime, float timeSinceStarting)
             card->shouldntBeFlipped = false;
         }
     }
-    if(game->state != PLAYING) return;
-    game->currentLevel->elapsedTime += elapsedTime;
-    RenderGame(game, elapsedTime, timeSinceStarting);
-    nGame::Card * cardClicked = NULL;
-    //If the left mouse button was clicked
-    if(game->mouseKeyIsDownCallback(GLFW_MOUSE_BUTTON_LEFT)){
-        double x, y;
-        game->mousePositionCallback(&x, &y);
-        OpenglCoords coordsOpengl = ScreenToOpenglCoords(x, y, game->globalInfo);
-        for(int i = 0; i<totalNumberOfCards; i++){
-            nGame::Card * card = cards + i;
-            if(nGame::CardWasClicked(card, coordsOpengl)){
-                if(!card->rotateAnimation.isActive && !card->isMatched){
-                    nGame::ClickCard(card);
-                    PlaySound(game->playSoundCallback, CARD_CLICK);
-                    cardClicked = card;
-                }
-                else{
-                    card->clickCounter++;
-                }
-            }
-        }
-    }
-    int totalFlippedCards = GetNumberOfFlippedCards(game);
-    if(cardClicked != NULL && cardClicked->isFlipped && totalFlippedCards > 2){
-        //If there are more than two flipped cards,
-        //we want to flip back all the cards that were flipped
-        //previously.
-        for(int i = 0; i<totalNumberOfCards; i++){
-            nGame::Card * card = cards + i;
-            if( card != cardClicked && card->isFlipped && !card->isMatched){
-                //If the previous card is still animating,
-                //set a flag to make sure the card will be flipped  back.
-                if(card->rotateAnimation.isActive){
-                    card->shouldntBeFlipped = true;
-                }
-                //Otherwise just click the card
-                else{
-                    nGame::ClickCard(card);
-                    PlaySound(game->playSoundCallback, CARD_CLICK);
+    switch(game->state){
+        case PLAYING:{
+            std::string p("Time left: ");
+            int timeLeft = game->currentLevel->totalTime - game->currentLevel->elapsedTime;
+            std::string s = std::to_string(timeLeft);
+            game->renderTextCallback(p, game->characterSet, 20, TextAlign::ALIGN_RIGHT, glm::vec2(360, 200));
+            game->renderTextCallback(s, game->characterSet, 20, TextAlign::ALIGN_RIGHT, glm::vec2(390, 200));
+            game->currentLevel->elapsedTime += elapsedTime;
+            RenderGame(game, elapsedTime, timeSinceStarting);
+            nGame::Card * cardClicked = NULL;
+            //If the left mouse button was clicked
+            if(game->mouseKeyIsDownCallback(GLFW_MOUSE_BUTTON_LEFT)){
+                double x, y;
+                game->mousePositionCallback(&x, &y);
+                OpenglCoords coordsOpengl = ScreenToOpenglCoords(x, y, game->globalInfo);
+                for(int i = 0; i<totalNumberOfCards; i++){
+                    nGame::Card * card = cards + i;
+                    if(nGame::CardWasClicked(card, coordsOpengl)){
+                        if(!card->rotateAnimation.isActive && !card->isMatched){
+                            nGame::ClickCard(card);
+                            PlaySound(game->playSoundCallback, CARD_CLICK);
+                            cardClicked = card;
+                        }
+                        else{
+                            card->clickCounter++;
+                        }
+                    }
                 }
             }
-        }
-    }
-    if(totalFlippedCards == 2){
-        nGame::Card * firstCard = NULL;
-        nGame::Card * secondCard = NULL;
-        for(int i = 0; i<totalNumberOfCards; i++){
-            nGame::Card * card = cards + i;
-            if(card->isFlipped && !card->isMatched){
-                if(firstCard == NULL) firstCard = card;
-                else secondCard = card;
+            int totalFlippedCards = GetNumberOfFlippedCards(game);
+            if(cardClicked != NULL && cardClicked->isFlipped && totalFlippedCards > 2){
+                //If there are more than two flipped cards,
+                //we want to flip back all the cards that were flipped
+                //previously.
+                for(int i = 0; i<totalNumberOfCards; i++){
+                    nGame::Card * card = cards + i;
+                    if( card != cardClicked && card->isFlipped && !card->isMatched){
+                        //If the previous card is still animating,
+                        //set a flag to make sure the card will be flipped  back.
+                        if(card->rotateAnimation.isActive){
+                            card->shouldntBeFlipped = true;
+                        }
+                        //Otherwise just click the card
+                        else{
+                            nGame::ClickCard(card);
+                            PlaySound(game->playSoundCallback, CARD_CLICK);
+                        }
+                    }
+                }
             }
+            if(totalFlippedCards == 2){
+                nGame::Card * firstCard = NULL;
+                nGame::Card * secondCard = NULL;
+                for(int i = 0; i<totalNumberOfCards; i++){
+                    nGame::Card * card = cards + i;
+                    if(card->isFlipped && !card->isMatched){
+                        if(firstCard == NULL) firstCard = card;
+                        else secondCard = card;
+                    }
+                }
+                if(firstCard->suit == secondCard->suit && firstCard->rank == secondCard->rank){
+                    firstCard->isMatched = true; 
+                    secondCard->isMatched = true;
+                }
+            }
+            if(game->currentLevel->elapsedTime > game->currentLevel->totalTime){
+                game->state = GAME_OVER;
+            }
+            break;
         }
-        if(firstCard->suit == secondCard->suit && firstCard->rank == secondCard->rank){
-            firstCard->isMatched = true; 
-            secondCard->isMatched = true;
+        
+        case GAME_OVER:{
+            game->renderTextCallback("Game over", game->characterSet, 50, TextAlign::ALIGN_CENTER, glm::vec2(200, 200));
+            game->currentLevel->gameOverScreenTimeElapsed += elapsedTime;
+            if(game->currentLevel->gameOverScreenTime < game->currentLevel->gameOverScreenTimeElapsed){
+                game->state = GameState::STARTMENU;
+            }
+            break;
         }
     }
 }

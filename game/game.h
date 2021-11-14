@@ -43,7 +43,9 @@ struct Level{
     int totalNumberOfCards;
     bool isWon = false;
     float elapsedTime = 0.0f;
-    float totalTime = 3 * 60; // seconds
+    float totalTime = 10; // seconds
+    float gameOverScreenTime = 3.0f; //seconds
+    float gameOverScreenTimeElapsed = 0.0f;
 };
 
 struct Game {

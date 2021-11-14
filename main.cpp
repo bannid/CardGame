@@ -48,6 +48,7 @@ inline void     GlOptions();
 inline void     InitalizeAllCards(nGame::Card * cards, int numberOfCols, int numberOfRows);
 inline void     ShuffleCardsArray(nGame::Card * cards, int numberOfCards);
 inline void     DrawCards(nGame::Card * cards, int numberOfCards, Quad * objFront, Quad * objBack);
+inline void     StartGame(Game * game);
 
 PLAY_SOUND_FUNCTION(PlaySoundCardGame){
     globalSoundEngine->play2D(filePath, loop);
@@ -246,7 +247,7 @@ int CALLBACK WinMain(HINSTANCE instance,
     glm::vec3 buttonsPosition = glm::vec3(200.0f, 180.0f, 1.0f);
     UI::Button startUpButtons[] = {
         UI::Button(&quitButton, &game, UI::QuitGame, buttonsPosition),
-        UI::Button(&startButton, &game, UI::StartGame, buttonsPosition)
+        UI::Button(&startButton, &game, StartGame, buttonsPosition)
     };
     GameCode gameCode;
     LoadGameDLL(&gameCode);
@@ -318,15 +319,6 @@ int CALLBACK WinMain(HINSTANCE instance,
         if(DEBUG_IF(ImGui::Button("Reload"))){
             LoadGameDLL(&gameCode);
         }
-        if(DEBUG_IF(game.currentLevel->isWon)){
-            if(DEBUG_IF(ImGui::Button("Restart"))){ 
-                game.currentLevel->isWon = false;
-                game.currentLevel->elapsedTime = 0.0f;
-                InitalizeAllCards(game.currentLevel->cards, numberOfColumns, numberOfRows);
-                ShuffleCardsArray(game.currentLevel->cards, numberOfRows * numberOfColumns);
-                globalSoundEngine->stopAllSounds();
-            }
-        }
         //ImGui::ShowDemoWindow();
         IMGUI_FUNCTION(ImGui::End());
         IMGUI_FUNCTION(ImGui::Begin("Textures"));
@@ -377,6 +369,16 @@ bool LoadTextures(Texture * textures){
         }
     }
     return true;
+}
+
+void StartGame(Game * game){
+    game->state = GameState::PLAYING;
+    game->currentLevel->isWon = false;
+    game->currentLevel->elapsedTime = 0.0f;
+    game->currentLevel->gameOverScreenTimeElapsed = 0.0f;
+    InitalizeAllCards(game->currentLevel->cards, 4, 6);
+    ShuffleCardsArray(game->currentLevel->cards, 6 * 4);
+    globalSoundEngine->stopAllSounds();
 }
 
 void FrameBufferSizeCallback(GLFWwindow * window, int width, int height){
