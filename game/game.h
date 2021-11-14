@@ -28,6 +28,7 @@ enum GameState{
     PLAYING,
     PAUSED,
     GAME_OVER,
+    GAME_WON,
     EXITING,
     EXITED
 };
@@ -35,7 +36,7 @@ enum GameState{
 enum SoundType{
     CARD_CLICK,
     CARD_MATCH,
-    GAME_WON
+    SOUND_GAME_WON
 };
 
 struct Level{
@@ -43,7 +44,7 @@ struct Level{
     int totalNumberOfCards;
     bool isWon = false;
     float elapsedTime = 0.0f;
-    float totalTime = 10; // seconds
+    float totalTime = 180; // seconds
     float gameOverScreenTime = 3.0f; //seconds
     float gameOverScreenTimeElapsed = 0.0f;
 };

@@ -7,22 +7,22 @@ inline void RenderGame(Game * game, float timeDelta, float timeSinceStarting);
 void PlaySound(PlaySoundCallback * callback, SoundType type);
 
 DLL_API void UpdateGame(Game * game, float elapsedTime, float timeSinceStarting){
-    if(game->currentLevel->isWon)return;
     int totalNumberOfCards = game->currentLevel->totalNumberOfCards;
-    
     nGame::Card * cards = game->currentLevel->cards; 
-    if(GetNumberOfMatchedCards(game) == totalNumberOfCards && !AnyOtherMatchedCardAnimating(game)){
-        PlaySound(game->playSoundCallback, GAME_WON);
-        game->currentLevel->isWon = true;
-        return;
-    } 
-    //Rotate all the cards that shouldn't be flipped
-    for(int i = 0; i<totalNumberOfCards; i++){
-        nGame::Card * card = cards + i;
-        if(card->shouldntBeFlipped && !card->rotateAnimation.isActive){
-            nGame::ClickCard(card);
-            PlaySound(game->playSoundCallback, CARD_CLICK);
-            card->shouldntBeFlipped = false;
+    if(!game->currentLevel->isWon){
+        if(GetNumberOfMatchedCards(game) == totalNumberOfCards && !AnyOtherMatchedCardAnimating(game)){
+            game->currentLevel->isWon = true;
+            game->state = GameState::GAME_WON;
+            return;
+        } 
+        //Rotate all the cards that shouldn't be flipped
+        for(int i = 0; i<totalNumberOfCards; i++){
+            nGame::Card * card = cards + i;
+            if(card->shouldntBeFlipped && !card->rotateAnimation.isActive){
+                nGame::ClickCard(card);
+                PlaySound(game->playSoundCallback, CARD_CLICK);
+                card->shouldntBeFlipped = false;
+            }
         }
     }
     switch(game->state){
@@ -98,6 +98,14 @@ DLL_API void UpdateGame(Game * game, float elapsedTime, float timeSinceStarting)
         
         case GAME_OVER:{
             game->renderTextCallback("Game over", game->characterSet, 50, TextAlign::ALIGN_CENTER, glm::vec2(200, 200));
+            game->currentLevel->gameOverScreenTimeElapsed += elapsedTime;
+            if(game->currentLevel->gameOverScreenTime < game->currentLevel->gameOverScreenTimeElapsed){
+                game->state = GameState::STARTMENU;
+            }
+            break;
+        }
+        case GameState::GAME_WON:{
+            game->renderTextCallback("You won", game->characterSet, 50, TextAlign::ALIGN_CENTER, glm::vec2(200, 200));
             game->currentLevel->gameOverScreenTimeElapsed += elapsedTime;
             if(game->currentLevel->gameOverScreenTime < game->currentLevel->gameOverScreenTimeElapsed){
                 game->state = GameState::STARTMENU;
@@ -193,7 +201,7 @@ void PlaySound(PlaySoundCallback * callback, SoundType type){
             callback(SOUND_FILE(powerup.wav), false);
             break;
         }
-        case GAME_WON:{
+        case SOUND_GAME_WON:{
             callback(SOUND_FILE(breakout.mp3), false);
             break;
         }
