@@ -67,3 +67,52 @@ bool LoadFonts(const char * filePath, CharacterSet * characterSet){
     }
     return false;
 }
+
+void RenderText(std::string string, CharacterSet * characterSet, int size, TextAlign alignment, glm::vec2 pos){
+    float preCalcOffset = 0.0f;
+    for(int i = 0; i<string.length(); i++){
+        int id = (int) string[i];
+        Character ch = characterSet->characters[id];
+        float scale = (float) size / characterSet->lineHeight;
+        preCalcOffset += ch.xAdvance * scale + ch.xOffset * scale;
+    }
+    float offsetX = 0.0f;
+    for(int i = 0; i<string.length(); i++){
+        int id = (int) string[i];
+        Character ch = characterSet->characters[id];
+        characterSet->quad->scale = glm::vec3(ch.width, ch.height, 1.0f);
+        float minX = ch.x / characterSet->fontAtlasWidth;
+        float minY = ch.y / characterSet->fontAtlasHeight;
+        float width = ch.width / characterSet->fontAtlasWidth;
+        float height = ch.height / characterSet->fontAtlasHeight;
+        float maxX = minX + width;
+        float maxY = minY + height;
+        float verticesText[] = {
+            0.0f, 1.0f, 1.0f, minX, minY, //top left
+            0.0f, 0.0f, 1.0f, minX, maxY, //bottom left
+            1.0f, 0.0f, 1.0f, maxX, maxY, //bottom right
+            
+            0.0f, 1.0f, 1.0f, minX, minY, //top left
+            1.0f, 0.0f, 1.0f, maxX, maxY, //bottom right
+            1.0f, 1.0f, 1.0f, maxX, minY // top right
+        };
+        float scale = (float) size / characterSet->lineHeight;
+        float yOffset = ch.height + ch.yOffset;
+        if(alignment == ALIGN_CENTER){
+            characterSet->quad->position = glm::vec3((pos.x - preCalcOffset * .5f) + offsetX + ch.xOffset * scale, pos.y - yOffset * scale, 1.0f);
+        }
+        else if(alignment == ALIGN_LEFT){
+            characterSet->quad->position = glm::vec3(pos.x + offsetX + ch.xOffset * scale, pos.y - yOffset * scale, 1.0f);
+        }
+        else if(alignment == ALIGN_RIGHT){
+            characterSet->quad->position = glm::vec3((pos.x - preCalcOffset) + offsetX + ch.xOffset * scale, pos.y - yOffset * scale, 1.0f);
+        }
+        characterSet->quad->scale *= scale;
+        offsetX += ch.xAdvance * scale;
+        AttachTexture(characterSet->fontAtlasTexture);
+        glBindVertexArray(characterSet->vao->VAO);
+        glBindBuffer(GL_ARRAY_BUFFER, characterSet->vao->VBO);
+        glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(verticesText), verticesText);
+        DrawQuad(characterSet->quad, characterSet->shader, characterSet->vao);
+            }
+}

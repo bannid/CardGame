@@ -7,6 +7,7 @@ inline void RenderGame(Game * game, float timeDelta, float timeSinceStarting);
 void PlaySound(PlaySoundCallback * callback, SoundType type);
 
 DLL_API void UpdateGame(Game * game, float elapsedTime, float timeSinceStarting){
+    game->renderTextCallback("Time left: ", game->characterSet, 30, TextAlign::ALIGN_RIGHT, glm::vec2(400, 200));
     if(game->currentLevel->isWon)return;
     int totalNumberOfCards = game->currentLevel->totalNumberOfCards;
     

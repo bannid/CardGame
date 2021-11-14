@@ -70,6 +70,8 @@ struct Game {
     ResetInputCallback *                                        resetInputCallback;
     LoadShaderShaderManagerCallback *                           loadShaderShaderManagerCallback;
     LoadShadersShaderManagerCallback *                          loadShadersShaderManagerCallback;
+    RenderTextCallback *                                        renderTextCallback;
+    CharacterSet *                                              characterSet;
 };
 
 

@@ -48,7 +48,6 @@ inline void     GlOptions();
 inline void     InitalizeAllCards(nGame::Card * cards, int numberOfCols, int numberOfRows);
 inline void     ShuffleCardsArray(nGame::Card * cards, int numberOfCards);
 inline void     DrawCards(nGame::Card * cards, int numberOfCards, Quad * objFront, Quad * objBack);
-inline void     RenderText(std::string string, CharacterSet * characterSet, int size, VertexArrayObject * vao, Shader * shader, Quad * quad);
 
 PLAY_SOUND_FUNCTION(PlaySoundCardGame){
     globalSoundEngine->play2D(filePath, loop);
@@ -136,10 +135,7 @@ int CALLBACK WinMain(HINSTANCE instance,
     Texture quitButton;
     LoadTexture(&quitButton, "../assets/UI/Quit.png", "QuitButton", 4, true);
     Texture arialFontTexture;
-    LoadTexture(&arialFontTexture, "../assets/harrington.png", "ArialFontAtlas", 4, false);
-    CharacterSet arials;
-    arials.fontAtlasTexture = &arialFontTexture;
-    LoadFonts("../assets/harrington.fnt", &arials);
+    LoadTexture(&arialFontTexture, "../assets/arial.png", "ArialFontAtlas", 4, false);
     if (!cardBack.loaded || !startButton.loaded || !quitButton.loaded){
         glfwTerminate();
         if(globalSoundEngine != NULL)globalSoundEngine->drop();
@@ -163,21 +159,18 @@ int CALLBACK WinMain(HINSTANCE instance,
         1.0f, -1.0f, 0.0f, 1.0f, 0.0f,//bottom right
         1.0f, 1.0f, 0.0f, 1.0f, 1.0f//top right 
     };
-    char c = 'A';
-    int id = (int) c;
-    float verticesText[] = {
-        0.0f, 1.0f, 1.0f, arials.characters[id].x, arials.characters[id].y, //top left
-        0.0f, 0.0f, 1.0f, arials.characters[id].x, arials.characters[id].y + arials.characters[id].height, //bottom left
-        1.0f, 0.0f, 1.0f, arials.characters[id].x + arials.characters[id].width, arials.characters[id].y + arials.characters[id].height, //bottom right
-        
-        0.0f, 1.0f, 1.0f, arials.characters[id].x, arials.characters[id].y, //top left
-        1.0f, 0.0f, 1.0f, arials.characters[id].x + arials.characters[id].width, arials.characters[id].y + arials.characters[id].height, //bottom right
-        1.0f, 1.0f, 1.0f, arials.characters[id].x + arials.characters[id].width, arials.characters[id].y // top right
-    };
     VertexArrayObject vao;
     LoadVao(&vao, vertices, CNT_ARR(vertices), false);
     VertexArrayObject vaoText;
-    LoadVao(&vaoText, NULL, CNT_ARR(verticesText), true);
+    LoadVao(&vaoText, NULL, CNT_ARR(vertices), true);
+    Quad text;
+    CharacterSet arials;
+    arials.fontAtlasTexture = &arialFontTexture;
+    arials.quad = &text;
+    arials.shader = &textShader;
+    arials.vao = &vaoText;
+
+    LoadFonts("../assets/arial.fnt", &arials);
     glm::mat4 projectionMat =  glm::ortho(0.0f, globalInfo.openglWidth, 0.0f, globalInfo.openglHeight, -500.0f, 500.0f);
     glm::mat4 camMat = glm::mat4(1.0f);
     SetMat4Shader(&shader, "uProjectionMat", projectionMat);
@@ -201,7 +194,6 @@ int CALLBACK WinMain(HINSTANCE instance,
     Quad obj1;
     Quad obj2;
     Quad buttons;
-    Quad text;
     //Setup the cards.
     const int numberOfColumns = 4;
     const int numberOfRows = 6;
@@ -235,6 +227,8 @@ int CALLBACK WinMain(HINSTANCE instance,
     game.playSoundCallback = globalSoundEngine == NULL ? PlaySoundStub : PlaySoundCardGame;
     game.loadShaderShaderManagerCallback = LoadShaderShaderManager;
     game.loadShadersShaderManagerCallback = LoadShadersShaderManager;
+    game.renderTextCallback = RenderText;
+    game.characterSet = &arials;
     IMGUI_INIT(window);
     Input::Key keyboardKeys[] = {
         Input::Key(GLFW_KEY_LEFT),
@@ -279,7 +273,6 @@ int CALLBACK WinMain(HINSTANCE instance,
             case GameState::STARTMENU:{
                 AttachShader(&circleShader);
                 DrawVao(&vao);
-                RenderText(std::string("This string text!"), &arials, 20, &vaoText, &textShader, &text);
                 buttons.scale = glm::vec3(20.0f, 10.0f, 1.0f);
                 for(int i = 0; i<CNT_ARR(startUpButtons); i++){
                     AttachTexture(startUpButtons[i].texture);
@@ -470,39 +463,5 @@ inline void InitalizeAllCards(nGame::Card * cards, int numberOfCols, int numberO
         card->rank = rank;
         cardOtherHalf->suit = suit;
         cardOtherHalf->rank = rank;
-    }
-}
-
-inline void RenderText(std::string string, CharacterSet * characterSet, int size, VertexArrayObject * vao, Shader * shader, Quad * quad){
-    float offsetX = 0.0f;
-    for(int i = 0; i<string.length(); i++){
-        int id = (int) string[i];
-        Character ch = characterSet->characters[id];
-        quad->scale = glm::vec3(ch.width, ch.height, 1.0f);
-        float minX = ch.x / characterSet->fontAtlasWidth;
-        float minY = ch.y / characterSet->fontAtlasHeight;
-        float width = ch.width / characterSet->fontAtlasWidth;
-        float height = ch.height / characterSet->fontAtlasHeight;
-        float maxX = minX + width;
-        float maxY = minY + height;
-        float verticesText[] = {
-            0.0f, 1.0f, 1.0f, minX, minY, //top left
-            0.0f, 0.0f, 1.0f, minX, maxY, //bottom left
-            1.0f, 0.0f, 1.0f, maxX, maxY, //bottom right
-            
-            0.0f, 1.0f, 1.0f, minX, minY, //top left
-            1.0f, 0.0f, 1.0f, maxX, maxY, //bottom right
-            1.0f, 1.0f, 1.0f, maxX, minY // top right
-        };
-        float scale = .3f;
-        float yOffset = ch.height + ch.yOffset;
-        quad->position = glm::vec3(0.0f + offsetX + ch.xOffset * scale, 200.0f - yOffset * scale, 1.0f);
-        quad->scale *= scale;
-        offsetX += ch.xAdvance * scale;
-        AttachTexture(characterSet->fontAtlasTexture);
-        glBindVertexArray(vao->VAO);
-        glBindBuffer(GL_ARRAY_BUFFER, vao->VBO);
-        glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(verticesText), verticesText);
-        DrawQuad(quad, shader, vao);
     }
 }

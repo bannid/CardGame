@@ -5,7 +5,7 @@ rem Files
 rem LibsPath
 rem Libs
 rem Includes
-
+del *.pdb
 set FilesDebug= ..\*.cpp ../glad.c ..\Libs\include\imgui\*.cpp
 set FilesRelease= ..\*.cpp ../glad.c 
 set Includes= ..\Libs\include 
